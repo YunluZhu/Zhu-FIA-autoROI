@@ -1,0 +1,97 @@
+// Go through all the subfolders
+// Batch load image series into stacks (2P naming)
+// Only load images in folders with names starting with "fish" 
+// Load images starting with "ChanA" (2P naming)
+// Load 760 images (KRH trial 65s 10.5fps)
+// Script will abort if a folder starts with "fish" in its name but has no image
+
+input = getDirectory("Input directory");
+// output = getDirectory("Output directory");
+ 
+//Dialog.create("File type");
+//Dialog.addString("File suffix: ", ".tif", 5);
+//Dialog.show();
+//suffix = Dialog.getString();
+
+print("----");
+ 
+processFolder(input);
+
+function processFolder(input) {
+	flag=0;
+	list_of_oriStack = newArray(1);
+    list = getFileList(input);
+    for (i = 0; i < list.length; i++) {
+        if (startsWith(list[i], "Image_scan_")) {
+			print(list[i]);
+            stack2hyperZprojTproj(input, list[i]);
+            close_all_windows();
+            if (flag==0) {
+            	list_of_oriStack[flag] = input+list[i];
+            }
+            else {
+            	newFileDir = newArray(1);
+            	newFileDir[0] = input+list[i];
+            	list_of_oriStack = Array.concat(list_of_oriStack, newFileDir);
+            }
+            flag = 1;
+        }
+    }
+    if (flag > 0) {
+    	stackList2hyperConcat(input, list_of_oriStack);
+    	close_all_windows();
+    	flag = 0;
+    	list_of_oriStack = newArray(1);
+    }
+	for (i = 0; i < list.length; i++) {
+        if (endsWith(list[i], "/")) {
+        	processFolder(input+list[i]);
+        }
+    }
+    	
+}
+ 
+function close_all_windows() { 
+      while (nImages>0) { 
+          selectImage(nImages); 
+          close(); 
+      } 
+} 
+  
+function stack2hyperZprojTproj(folder, imgName) {
+	run("Bio-Formats", "open=" + "[" + folder + imgName + "]");
+//	open();
+	run("Stack to Hyperstack...", "order=xyczt(default) channels=1 slices=8 frames=24 display=Color");
+//	outFile = folder + "hyper_" + imgName;
+//	outFile = substring(outFile, 0, lengthOf(outFile)-1);
+//	saveAs("Tiff", outFile);
+	run("Z Project...", "projection=[Max Intensity] all");
+	outFile = folder + "max_" + imgName;
+	outFile = substring(outFile, 0, lengthOf(outFile)-1);
+	saveAs("Tiff", outFile);
+    close();
+//    run("Re-order Hyperstack ...", "channels=[Channels (c)] slices=[Frames (t)] frames=[Slices (z)]");
+//    run("Z Project...", "projection=[Max Intensity] all");
+//	run("Re-order Hyperstack ...", "channels=[Channels (c)] slices=[Frames (t)] frames=[Slices (z)]");
+//	outFile = folder + "tmax_" + imgName;
+//	outFile = substring(outFile, 0, lengthOf(outFile)-1);
+//	saveAs("Tiff", outFile);
+}
+
+function stackList2hyperConcat(folder, list_of_imgDir) {
+	list_of_imgDir = Array.sort(list_of_imgDir);
+	for (j=0; j < list_of_imgDir.length; j++) {
+		run("Bio-Formats", "open=" + "[" + list_of_imgDir[j] + "]");
+		run("Stack to Hyperstack...", "order=xyczt(default) channels=1 slices=8 frames=24 display=Color");
+	}
+	run("Concatenate...", "all_open open");
+	outFile = folder + "hyperConcat_allRegions";
+	saveAs("Tiff", outFile);
+	run("Re-order Hyperstack ...", "channels=[Channels (c)] slices=[Frames (t)] frames=[Slices (z)]");
+    run("Z Project...", "projection=[Max Intensity] all");
+	run("Re-order Hyperstack ...", "channels=[Channels (c)] slices=[Frames (t)] frames=[Slices (z)]");
+	outFile = folder + "tmax_" + "hyperConcat_allRegions";
+	saveAs("Tiff", outFile);
+
+}
+
