@@ -39,7 +39,7 @@ def plt_categorical_grid(
         aspect (float, optional): aspect ratio of the graph. Defaults to 0.8.
     """
     set_font_type()
-    data.sort_values(by=x_name,inplace=True)
+    data = data.sort_values(by=x_name)
     
     assert_repeats = len(set(data.groupby([x_name])[units].apply(lambda x: len(x.unique())).values))
         

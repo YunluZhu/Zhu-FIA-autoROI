@@ -213,10 +213,10 @@ ROI_passQC = np.intersect1d(ROI_pass1, ROI_pass2)
 
 amp_selected = amp_long.loc[amp_long['ROI'].isin(ROI_passQC)]
 
-# %%
-
+# %% 
+################## SLOPE on average amplitudes #################################
 amp_wide = pd.pivot(
-    amp_long,
+    amp_selected,
     index=sel_unique_roi_level,
     columns='nsti',
     values=DATA_FILE,
@@ -225,66 +225,126 @@ amp_wide = pd.pivot(
 amp_wide.columns.name = None
 amp_wide.columns = sel_unique_roi_level + amp_cols
 amp_wide = amp_wide.rename(columns={'area':'cond_num'})
-amp_wide = amp_wide.merge(ROI_metadata, how='left', left_on='ROI', right_on='id')
+# amp_wide = amp_wide.merge(ROI_metadata, how='left', left_on='ROI', right_on='id')
 
 amp_wide = amp_wide.assign(
     exp_cond = amp_wide['cond_num'].astype(str).map(area_cond_dict),
 )
-# %%
+
 slope = []
-sqErr = []
+sq_residual = []
+corr = []
+
+amp_avg = amp_wide.groupby(['cond_num', 'ROI','exp_cond'])[amp_cols].median().reset_index()
 
 X = np.array(STIMULUS)
 X = np.vstack((np.ones(len(X)), X)).T
 
-for index, row in amp_wide.iterrows():
+for index, row in amp_avg.iterrows():
     Y = np.float64(row[amp_cols].values)
-    b = (np.linalg.inv(X.T @ X) @ (X.T) @ Y.T)[1]
-    slope.append(b)
-    e = np.sum(np.square(Y - X.dot(b)[:,1]))
-    sqErr.append(e)
+    b = (np.linalg.inv(X.T @ X) @ (X.T) @ Y.T)
+    slope.append(b[1])
+    e = np.sum(np.square(Y - X.dot(b)))
+    sq_residual.append(e)
+    r = np.corrcoef(X[:,1], Y)
+    corr.append(r[0,1])
 
-amp_wide = amp_wide.assign(
-    amp_slope = slope,
-    sqErr = sqErr
+amp_avg = amp_avg.assign(
+    slope_avgAmp = slope,
+    sq_residual_avgAmp = sq_residual,
+    r = corr
 )
 
-# %%
-# use squared error to find ROIs with tuning
+# # use squared error to find ROIs with tuning (disabled)
 
-tuning_qc_df = amp_wide.groupby(['cond_num', 'ROI'])[['amp_slope', 'sqErr']].median()
-sqErr_threshold = np.percentile(tuning_qc_df.loc[1,:,:]['sqErr'], 95) 
-ROI_goodFit = tuning_qc_df.loc[1,:,:].query("sqErr < @sqErr_threshold").index
+r_threshold = 0.7
+ratio_pass = sum(amp_avg.loc[amp_avg['cond_num']==1,'r'] > r_threshold)/len(amp_avg.ROI.unique())
+print(f'Ratio of ROIs with > {r_threshold} correlation of amplitudes X stimulus: {ratio_pass}')
+ROI_goodFit = amp_avg.loc[amp_avg['cond_num']==1,:].query("r > @r_threshold").ROI.values
+amp_goodFit_SlopeOnAveragedAmp = amp_avg.loc[amp_avg['ROI'].isin(ROI_goodFit)]
 
-amp_goodFit = amp_wide.loc[amp_wide['ROI'].isin(ROI_goodFit)]
-# %%
 x_name='exp_cond'
-y_name='amp_slope'
+y_name='slope_avgAmp'
 units = 'ROI'
-
-slope_avg = amp_goodFit.groupby([units, x_name])[y_name].median().reset_index()
-
 
 p = plt_categorical_grid(
     gridcol=None,
     gridrow=None,
-    data=slope_avg,
+    data=amp_avg,
     x_name=x_name,
     y_name=y_name,
     units=units,
     height=3
 )
+# p.set(
+#     ylim=(0,0.13)
+# )
+# # %%
+# ################## SLOPE on raw amplitudes #################################
+# sti_map = dict([(ii+1, sti) for ii, sti  in enumerate(STIMULUS)])
 
+# amp_selected = amp_selected.assign(
+#     stimulus = amp_selected['nsti'].map(sti_map)
+# )
 
+# slope = []
+# sq_residual = []
+# roi = []
+# cond_num = []
+
+# for (area, ROI), group in amp_selected.groupby(['area', 'ROI']):
+#     X = group['stimulus']
+#     X = np.vstack((np.ones(len(X)), X)).T
+#     Y = np.float64(group[DATA_FILE].values)
+#     b = (np.linalg.inv(X.T @ X) @ (X.T) @ Y.T)
+#     slope.append(b[1])
+#     e = np.sum(np.square(Y - X.dot(b)))
+#     sq_residual.append(e)
+#     roi.append(group.ROI.unique()[0])
+#     cond_num.append(group.area.unique()[0])
+
+# res_rawAmp_toMerge = pd.DataFrame(data={
+#     'slope_rawAmp': slope,
+#     'cond_num': cond_num,
+#     'sq_residual_rawAmp': sq_residual,
+#     'ROI': roi,
+# })
+
+# slope_res = amp_avg.merge(res_rawAmp_toMerge, on=['ROI', 'cond_num'])
+
+# # use squared error to find ROIs with tuning
+
+# sq_residual_threshold2 = np.percentile(slope_res.loc[slope_res['cond_num']==1,'sq_residual_rawAmp'], 95) 
+# ROI_goodFit2 = slope_res.loc[slope_res['cond_num']==1,:].query("sq_residual_rawAmp < @sq_residual_threshold2").ROI.values
+
+# amp_goodFit_SlopeOnRawAmp = slope_res.loc[amp_avg['ROI'].isin(ROI_goodFit2)]
+
+# x_name='exp_cond'
+# y_name='slope_rawAmp'
+# units = 'ROI'
+
+# p = plt_categorical_grid(
+#     gridcol=None,
+#     gridrow=None,
+#     data=amp_goodFit_SlopeOnRawAmp,
+#     x_name=x_name,
+#     y_name=y_name,
+#     units=units,
+#     height=3,
+# )
+# p.set(
+#     ylim=(0,0.13)
+# )
+
+# %%
 
 # %%
 
 dFF_long_roi_corrected.to_hdf(f'{root}/dFF_analyzed.h5', key='long_data', mode='w', format='table')
 ROI_metadata.to_hdf(f'{root}/dFF_analyzed.h5', key='roi_metadata', format='table')
 
-
 # %%
 
-
+# return amp_wide, slope_res
 
 # %%
