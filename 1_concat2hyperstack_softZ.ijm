@@ -3,7 +3,7 @@
 	// concatenate individual tiff 2p data into one hyperstack
 	// save the hyperstack
 	// zNumber is the number of intended slices in the flattened OME TIFF
-
+// FISH LEVEL DIR recommended
 input = getDirectory("Input directory");
 z = getString("How many slices?: ", "6");
 
@@ -34,12 +34,13 @@ function processFolder(input) {
             flag = 1;
         }
         ///////
-        else if (startsWith(list[i], "ChanA")) { //if individual tiffs
+        else if (startsWith(list[i], "ChanA_0")) { //if individual tiffs
         	print(input);
             seq2hyperZprojTproj(input, z);
             close_all_windows();
             break;
         }
+        
         ///////
     }
     if (flag > 0) {

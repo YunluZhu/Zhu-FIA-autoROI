@@ -1,4 +1,4 @@
-function dFoF_KSDensity = extract_dFF_ksDensity(response)
+function [dFoF_KSDensity, mu] = extract_dFF_ksDensity(response)
     numROIs=size(response,2);
     mu=[];
     [smoothDist,x] = ksdensity(response(:));
