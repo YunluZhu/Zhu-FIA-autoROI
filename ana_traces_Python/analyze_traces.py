@@ -17,13 +17,13 @@ import itertools
 from plot_functions.plt_functions import plt_categorical_grid
 
 
-DATA_FILE = 'dFF_adj' # dFF_adj 
+DATA_FILE = 'dFF_ksDensity' # dFF_adj dFF_ksDensityBase_adj
 if_plot = False
 sel_area = [1,2]
 STIMULUS = [5, 10, 20, 30]
 nsti = len(STIMULUS)
 
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230622_fish4 prox_bi"
+root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/light_2analyze/230630_fish1 ST"
 
 # %%
 raw_df = pd.read_csv(os.path.join(root, "rawF_df.csv"))
@@ -66,13 +66,16 @@ for file in os.listdir(root):
 
 ROI_metadata = pd.read_csv(os.path.join(root, "ROI_metadata.csv"))
 
+fish_metaDATA_FILE = []
 parent_dir = os.path.abspath(os.path.join(root, os.pardir))
 for file in os.listdir(parent_dir):
     if str.endswith(file, " metadata.csv"):
-        fish_metaDATA_FILE = os.path.join(parent_dir, file)
-        break
-    
-fish_metadata = pd.read_csv(fish_metaDATA_FILE)
+        fish_metaDATA_FILE.append(os.path.join(parent_dir, file))
+
+fish_metaDATA_FILE.sort()
+fish_metaDATA_FILE_sel = fish_metaDATA_FILE[-1]
+
+fish_metadata = pd.read_csv(fish_metaDATA_FILE_sel)
 
 frame_rate = fish_metadata.loc[
     (fish_metadata['exp_date']==exp_date) & (fish_metadata['fish_num']==fishNum), 'frame_rate'
@@ -270,73 +273,63 @@ units = 'ROI'
 p = plt_categorical_grid(
     gridcol=None,
     gridrow=None,
-    data=amp_avg,
+    data=amp_goodFit_SlopeOnAveragedAmp,
     x_name=x_name,
     y_name=y_name,
     units=units,
-    height=3
+    height=3,
 )
-# p.set(
-#     ylim=(0,0.13)
-# )
-# # %%
-# ################## SLOPE on raw amplitudes #################################
-# sti_map = dict([(ii+1, sti) for ii, sti  in enumerate(STIMULUS)])
 
-# amp_selected = amp_selected.assign(
-#     stimulus = amp_selected['nsti'].map(sti_map)
-# )
+# %% plot good tuning ROI
 
-# slope = []
-# sq_residual = []
-# roi = []
-# cond_num = []
+good_tuning_ROI = amp_goodFit_SlopeOnAveragedAmp.query("cond_num == 1 & slope_avgAmp > 0.02").ROI.values
+amp_goodTuning = amp_goodFit_SlopeOnAveragedAmp.loc[amp_goodFit_SlopeOnAveragedAmp.ROI.isin(good_tuning_ROI)]
 
-# for (area, ROI), group in amp_selected.groupby(['area', 'ROI']):
-#     X = group['stimulus']
-#     X = np.vstack((np.ones(len(X)), X)).T
-#     Y = np.float64(group[DATA_FILE].values)
-#     b = (np.linalg.inv(X.T @ X) @ (X.T) @ Y.T)
-#     slope.append(b[1])
-#     e = np.sum(np.square(Y - X.dot(b)))
-#     sq_residual.append(e)
-#     roi.append(group.ROI.unique()[0])
-#     cond_num.append(group.area.unique()[0])
+sns.lineplot(data=amp_goodTuning, 
+             x='cond_num', 
+             y='slope_avgAmp')
 
-# res_rawAmp_toMerge = pd.DataFrame(data={
-#     'slope_rawAmp': slope,
-#     'cond_num': cond_num,
-#     'sq_residual_rawAmp': sq_residual,
-#     'ROI': roi,
-# })
+x_name='exp_cond'
+y_name='slope_avgAmp'
+units = 'ROI'
 
-# slope_res = amp_avg.merge(res_rawAmp_toMerge, on=['ROI', 'cond_num'])
+p = plt_categorical_grid(
+    gridcol=None,
+    gridrow=None,
+    data=amp_goodTuning,
+    x_name=x_name,
+    y_name=y_name,
+    units=units,
+    height=3,
+    aspect=1.3
+)
 
-# # use squared error to find ROIs with tuning
 
-# sq_residual_threshold2 = np.percentile(slope_res.loc[slope_res['cond_num']==1,'sq_residual_rawAmp'], 95) 
-# ROI_goodFit2 = slope_res.loc[slope_res['cond_num']==1,:].query("sq_residual_rawAmp < @sq_residual_threshold2").ROI.values
+# %% Check one ROI tuning
 
-# amp_goodFit_SlopeOnRawAmp = slope_res.loc[amp_avg['ROI'].isin(ROI_goodFit2)]
+selROI = amp_goodFit_SlopeOnAveragedAmp.sample(1).ROI.values[0]
+ppdf = amp_goodFit_SlopeOnAveragedAmp.query("ROI == @selROI")
+sns.lineplot(data=ppdf, x='cond_num', y='slope_avgAmp')
 
-# x_name='exp_cond'
-# y_name='slope_rawAmp'
-# units = 'ROI'
+# %% look at raw data
+sti_map = dict([(ii+1, sti) for ii, sti  in enumerate(STIMULUS)])
 
-# p = plt_categorical_grid(
-#     gridcol=None,
-#     gridrow=None,
-#     data=amp_goodFit_SlopeOnRawAmp,
-#     x_name=x_name,
-#     y_name=y_name,
-#     units=units,
-#     height=3,
-# )
-# p.set(
-#     ylim=(0,0.13)
-# )
+tuning_goodFit_longdf = amp_selected.loc[amp_selected.ROI.isin(amp_goodFit_SlopeOnAveragedAmp.ROI.unique())]
+tuning_goodFit_longdf = tuning_goodFit_longdf.assign(
+    stimulus = tuning_goodFit_longdf['nsti'].map(sti_map),
+    exp_cond = tuning_goodFit_longdf['area'].astype(str).map(area_cond_dict),
 
-# %%
+)
+
+average_tuning_goodFit = tuning_goodFit_longdf.groupby(['exp_cond','ROI','stimulus']).median().reset_index()
+sns.lineplot(
+    data=average_tuning_goodFit,
+    x='stimulus',
+    y=DATA_FILE,
+    hue='exp_cond',
+    palette=sns.color_palette("tab10"),
+)
+
 
 # %%
 
