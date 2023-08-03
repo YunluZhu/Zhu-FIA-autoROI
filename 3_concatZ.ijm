@@ -84,10 +84,18 @@ function concatArea_byZ(fish_folder) {
 				run("Bio-Formats", "open=["+this_file_dir+"] color_mode=Default rois_import=[ROI manager] split_focal view=Hyperstack stack_order=XYCZT");
 			}
 		}
-		if (nImages>0) {
+		if (nImages>1) {
 			print(fish_folder);
 			print(area_list[0]);
 			run("Concatenate...", "all_open open");
+			fileName = "z"+zz+"_allArea";
+			outFile = input + fileName;
+			saveAs("Tiff", outFile);
+			close();
+		}
+		else if (nImages==1) {
+			print(fish_folder);
+			print(area_list[0]);
 			fileName = "z"+zz+"_allArea";
 			outFile = input + fileName;
 			saveAs("Tiff", outFile);
