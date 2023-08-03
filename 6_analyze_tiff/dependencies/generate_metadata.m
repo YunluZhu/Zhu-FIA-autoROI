@@ -1,7 +1,7 @@
 
 
 
-% % root_dir = '/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/light_2analyze';
+% root_dir = '/Volumes/LabDataPro/CB';
 
 function metadata_table = generate_metadata(root_dir)
 %%

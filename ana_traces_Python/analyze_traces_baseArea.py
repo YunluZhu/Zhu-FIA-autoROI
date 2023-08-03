@@ -15,32 +15,32 @@ import scipy.io
 import matplotlib.pyplot as plt
 import itertools
 from plot_functions.plt_functions import plt_categorical_grid
-import plotly.express as px
-import plotly.graph_objs as go
 
 
-DATA_FILE = 'dFF_ksDensity' # dFF_adj dFF_ksDensity rawF
+DATA_FILE = 'dF_baseTrial' 
 if_plot = False
 # sel_area = [1,2]
 STIMULUS = [5, 10, 20, 30]
 nsti = len(STIMULUS)
 
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/lightanalyzed_UP/230630_fish1 ST"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/lightanalyzed_UP/230714_fish2 NT"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze/230618_fish1 prox_R"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230620_fish1 prox_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230622_fish2 distal_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230624_fish3 distal_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230626_fish1 distal_bi"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/light_2analyze/230630_fish1 ST"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/light_2analyze/230714_fish2 NT"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230618_fish1 prox_R"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230620_fish1 prox_bi"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230622_fish2 distal_bi"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230624_fish3 distal_bi"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230626_fish1 distal_bi"
 
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230714_fish1 prox_bi"
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_DN/230725_fish1 NOSE DOWN"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230727_fish2 distal_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230727_fish1 NT"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230714_fish1 prox_bi"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230725_fish1 NOSE DOWN"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230727_fish2 distal_bi"
+root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230727_fish1 NT"
 # %%
 raw_df = pd.read_csv(os.path.join(root, "rawF_df.csv"))
-mat = scipy.io.loadmat(os.path.join(root, DATA_FILE+'.mat'))[DATA_FILE]
-dFF = pd.DataFrame(data=mat)
+    
+# mat = scipy.io.loadmat(os.path.join(root, DATA_FILE+'.mat'))[DATA_FILE]
+
+dFF = pd.read_csv(os.path.join(root, f"{DATA_FILE}.csv"))
 
 if len(raw_df.columns) > len(dFF.columns):
     col_diff = len(raw_df.columns) - len(dFF.columns) 
@@ -49,11 +49,11 @@ if len(raw_df.columns) > len(dFF.columns):
 dFF.columns = [sub.replace('rawF', 'roi_') for sub in raw_df.columns]
 
 nreps = dFF.groupby(['area','repeat']).ngroups
-trial_frames = int(len(raw_df)/nreps)
-
+trial_frames = int(len(dFF)/nreps)
 dFF = dFF.assign(
     frames = list(np.arange(trial_frames)) * nreps
 )
+# %%
 
 # find fish info
 fish_info = root.split("/")[-1].split(" ")
@@ -83,20 +83,14 @@ for file in os.listdir(parent_dir):
     if str.endswith(file, " metadata.csv"):
         fish_metaDATA_FILE.append(os.path.join(parent_dir, file))
 
-frame_rate = pd.Series(dtype='float64')
 fish_metaDATA_FILE.sort()
-for fish_metaDATA_FILE_sel in fish_metaDATA_FILE:
-    if frame_rate.empty:
-        fish_metadata = pd.read_csv(fish_metaDATA_FILE_sel)
-        try:
-            frame_rate = fish_metadata.loc[
-                (fish_metadata['exp_date']==exp_date) & (fish_metadata['fish_num']==fishNum), 'frame_rate'
-                ]
-        except:
-            pass
-    else:
-        break
+fish_metaDATA_FILE_sel = fish_metaDATA_FILE[-1]
 
+fish_metadata = pd.read_csv(fish_metaDATA_FILE_sel)
+
+frame_rate = fish_metadata.loc[
+    (fish_metadata['exp_date']==exp_date) & (fish_metadata['fish_num']==fishNum), 'frame_rate'
+    ]
 frame_rate = frame_rate.iloc[0]
 vol_rate = frame_rate / (ROI_metadata['zPos'].max() + 1)
 time_stamp = np.arange(0,20,1/vol_rate)[1:]
@@ -205,18 +199,24 @@ LAST3s_THRESHOLD = 0.75 # dFF
 amp_long_group = amp_long.groupby(sel_unique_roi_level)[DATA_FILE]
 ROI_pass1 = amp_long[(amp_long_group.transform('mean') > dFF_THRESHOLD) &  (amp_long_group.transform('std')/amp_long_group.transform('mean') < dFF_stdMean_THRESHOLD)].query("area == 1").ROI.unique()
 print(f"{len(ROI_pass1)}/{len(ROI_metadata)} ROIs passed dFF threshold")
+# 2. find ROIs with relatively stable baseline after each sti
 
-# # 2. find ROIs with relatively stable baseline after each sti
 # baseline_file = 'baseline' + '_' + DATA_FILE.split('_')[1]
 # if DATA_FILE.endswith('adj'):
 #     baseline_file = baseline_file + '_adj'
 # mat = scipy.io.loadmat(os.path.join(root, baseline_file+'.mat'))
+
 # baseline_file_name = list(mat.keys())[-1]
 
 # baseline_wide = pd.DataFrame(data=mat[baseline_file_name])
+# # idx_for_head1EachSti = np.arange(0, len(baseline_wide), trial_frames)
+# # idx_for_head1EachSti = idx_for_head1EachSti[0:len(dFF.query("area == 1").repeat.unique())] # only use baseline of first condition
+# # bb = baseline_wide.loc[idx_for_head1EachSti]
+# # bb = bb.std()/bb.mean()
+
 # bb = baseline_wide.std()/baseline_wide.mean()
 # ROI_pass2 = bb.loc[bb < BASE_THRESHOLD].index + 1
-# print(f"{len(ROI_pass2)}/{len(ROI_metadata)} ROIs passed stable baseline threshold")
+# print(f"{len(ROI_pass2)}/{len(ROI_metadata)} ROIs passed dFF threshold")
 
 # 3. find ROIs with response down to baseline at the end of each sti
 idx_for_last3sec = dFF_long_roi_corrected.groupby(sel_unique_roi_level + ['nsti']).tail(int(np.floor(3 * vol_rate))).index
@@ -224,11 +224,12 @@ rows_for_last3sec = dFF_long_roi_corrected.loc[idx_for_last3sec]
 last3sec_long = rows_for_last3sec.groupby(sel_unique_roi_level + ['nsti'])[DATA_FILE].median(numeric_only=True).reset_index()
 last3sec_long_groupMean = last3sec_long.groupby(['ROI','area'])[DATA_FILE].median()
 ROI_pass3 = last3sec_long_groupMean.loc[last3sec_long_groupMean < LAST3s_THRESHOLD].reset_index().ROI.unique()
-print(f"{len(ROI_pass3)}/{len(ROI_metadata)} ROIs passed baseline threshold")
+print(f"{len(ROI_pass3)}/{len(ROI_metadata)} ROIs passed dFF threshold")
 
 
+
+# ROI_passQC = np.intersect1d(ROI_pass1, ROI_pass2)
 ROI_passQC = np.intersect1d(ROI_pass1, ROI_pass3)
-# ROI_passQC = np.intersect1d(ROI_passQC, ROI_pass3)
 
 print(f"> {len(ROI_passQC)} passed QC")
 amp_selected = amp_long.loc[amp_long['ROI'].isin(ROI_passQC)]
@@ -275,6 +276,7 @@ amp_avg = amp_avg.assign(
     r = corr
 )
 
+# %% plot good fit ROI
 # # use squared error to find ROIs with tuning 
 
 r_threshold = 0.8
@@ -295,13 +297,12 @@ p = plt_categorical_grid(
     y_name=y_name,
     units=units,
     height=3,
-    aspect=1.3
 )
 
 # %% plot good tuning ROI
 
-ROI_goodTuning = amp_goodFit_SlopeOnAveragedAmp.query("cond_num == 1 & slope_avgAmp > 0.1").ROI.values
-amp_goodTuning = amp_goodFit_SlopeOnAveragedAmp.loc[amp_goodFit_SlopeOnAveragedAmp.ROI.isin(ROI_goodTuning)]
+good_tuning_ROI = amp_goodFit_SlopeOnAveragedAmp.query("cond_num == 1 & slope_avgAmp > 0.1").ROI.values
+amp_goodTuning = amp_goodFit_SlopeOnAveragedAmp.loc[amp_goodFit_SlopeOnAveragedAmp.ROI.isin(good_tuning_ROI)]
 
 sns.lineplot(data=amp_goodTuning, 
              x='cond_num', 
@@ -319,7 +320,6 @@ p = plt_categorical_grid(
     y_name=y_name,
     units=units,
     height=3,
-    aspect=1.3
 )
 
 
@@ -330,9 +330,17 @@ p = plt_categorical_grid(
 # sns.lineplot(data=ppdf, x='cond_num', y='slope_avgAmp')
 
 # %% look at raw data
+# select ROI from:
+# amp_goodFit_SlopeOnAveragedAmp
+# amp_goodTuning
+
+ROI_toplt = amp_goodFit_SlopeOnAveragedAmp.ROI.unique()
+
+df_toplt = amp_selected.loc[amp_selected['ROI'].isin(ROI_toplt), :]
+
 sti_map = dict([(ii+1, sti) for ii, sti  in enumerate(STIMULUS)])
 
-tuning_goodFit_longdf = amp_selected.loc[amp_selected.ROI.isin(amp_goodFit_SlopeOnAveragedAmp.ROI.unique())]
+tuning_goodFit_longdf = df_toplt.loc[df_toplt.ROI.isin(amp_goodFit_SlopeOnAveragedAmp.ROI.unique())]
 tuning_goodFit_longdf = tuning_goodFit_longdf.assign(
     stimulus = tuning_goodFit_longdf['nsti'].map(sti_map),
     exp_cond = tuning_goodFit_longdf['area'].astype(str).map(area_cond_dict),
@@ -351,51 +359,17 @@ sns.lineplot(
 
 # %%
 
-ROI_metadata = ROI_metadata.assign(
-    if_goodFit=0,
-    if_goodTuning=0, 
-    slope_area1=0,
-)
-ROI_metadata.loc[ROI_metadata['id'].isin(ROI_goodFit), 'if_goodFit'] = 1
-ROI_metadata.loc[ROI_metadata['id'].isin(ROI_goodTuning), 'if_goodTuning'] = 1
-ROI_metadata = ROI_metadata.merge(amp_avg.query("cond_num == 1")[['ROI', 'amp_4', 'slope_avgAmp']], how='left',left_on='id', right_on='ROI')
-
 dFF_long_roi_corrected.to_hdf(f'{root}/dFF_analyzed.h5', key='long_data', mode='w', format='table')
 ROI_metadata.to_hdf(f'{root}/dFF_analyzed.h5', key='roi_metadata', format='table')
 
 # %%
-# look at diff of slopes between conditions
 
-df_sel = amp_goodTuning
-ctrl_df = df_sel.query("cond_num == 1").reset_index(drop=True)
-cond_df = df_sel.query("cond_num == 2").reset_index(drop=True)
-res = ctrl_df.copy()
-res = res.assign(
-    diff = cond_df['slope_avgAmp'] - ctrl_df['slope_avgAmp'], 
-)
-res = res.assign(
-    ratio = res['diff'] / res['slope_avgAmp']
-)
-plt.figure()
-sns.scatterplot(data=res,
-                x='slope_avgAmp',
-                y='diff')
-plt.figure()
-sns.histplot(data=res,
-                y='diff',
-                bins=4)
-# %%
-# look at location of good tuning neurons
-
-
-df = ROI_metadata.query("if_goodFit == 1")
-fig = px.scatter_3d(df, x='xCenter', y='yCenter', z='zPos',
-              size='slope_avgAmp', color='amp_4')
-fig.update_layout(
-    scene=dict(
-           aspectmode='data', #this string can be 'data', 'cube', 'auto', 'manual'
-           )
-)
-fig.show()
+# return amp_wide, slope_res
 
 # %%
+ctrl_df = amp_goodTuning.query("cond_num == 1").reset_index(drop=True)
+cond_df = amp_goodTuning.query("cond_num == 2").reset_index(drop=True)
+res = cond_df.copy()
+res = res.assign(
+    diff = cond_df['slope_avgAmp'] - ctrl_df['slope_avgAmp']
+)

@@ -22,8 +22,7 @@ import plotly.graph_objs as go
 DATA_FILE = 'dFF_ksDensity' # dFF_adj dFF_ksDensity rawF
 if_plot = False
 # sel_area = [1,2]
-STIMULUS = [5, 10, 20, 30]
-nsti = len(STIMULUS)
+
 
 # root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/lightanalyzed_UP/230630_fish1 ST"
 # root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/lightanalyzed_UP/230714_fish2 NT"
@@ -34,7 +33,7 @@ nsti = len(STIMULUS)
 # root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230626_fish1 distal_bi"
 
 # root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230714_fish1 prox_bi"
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_DN/230725_fish1 NOSE DOWN"
+root = "/Volumes/LabDataPro/CB/111111_fish1 blahblah"
 # root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230727_fish2 distal_bi"
 # root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230727_fish1 NT"
 # %%
@@ -110,8 +109,8 @@ dFF_long = dFF_long.assign(
     exp_cond = dFF_long['area'].astype(str).map(area_cond_dict),
     fish_id = fish_info[0],
     fish_info = fish_info[1],
-    time = list(time_stamp) * nsti * nreps * len(ROI_metadata),
-    nsti = list(np.repeat(np.arange(nsti)+1, sti_frames)) * nreps * len(ROI_metadata)
+    # time = list(time_stamp) * nsti * nreps * len(ROI_metadata),
+    # nsti = list(np.repeat(np.arange(nsti)+1, sti_frames)) * nreps * len(ROI_metadata)
 )
 
 ROI_metadata = ROI_metadata.assign(
