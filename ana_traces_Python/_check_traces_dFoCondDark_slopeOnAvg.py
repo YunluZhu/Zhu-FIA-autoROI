@@ -4,6 +4,9 @@ prerequisite: fluorescent traces extracted by MATLAB script.
 HARD CODED for DURATION of STIMULUS 20s
 for details of the whole pipeline, see: https://benchling.com/s/etr-GCcRV7cmhRg7u4JQuDfr?m=slm-n9tOEQ0aekst3JyASOkw
 
+NOTE reads dF_ksDensity and uses Dark KS baseline (which includes DarkBase) to calculate dFF for all conditions
+-----todo-----
+NOTE under light, response to lower angles are reduced. Compare amplituds
 '''
 
 # %%
@@ -14,33 +17,43 @@ import os
 import scipy.io
 import matplotlib.pyplot as plt
 import itertools
-from plot_functions.plt_functions import plt_categorical_grid
+from plot_functions.plt_functions import plt_categorical_grid2
 import plotly.express as px
 import plotly.graph_objs as go
 
 
-DATA_FILE = 'dFF_ksDensity' # dFF_adj dFF_ksDensity rawF
-if_plot = False
-# sel_area = [1,2]
+# if_plot = False
+
 STIMULUS = [5, 10, 20, 30]
 nsti = len(STIMULUS)
 
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/lightanalyzed_UP/230630_fish1 ST"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/lightanalyzed_UP/230714_fish2 NT"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze/230618_fish1 prox_R"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230620_fish1 prox_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230622_fish2 distal_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230624_fish3 distal_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230626_fish1 distal_bi"
-
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230714_fish1 prox_bi"
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_DN/230725_fish1 NOSE DOWN"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_UP/230727_fish2 distal_bi"
 # root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230727_fish1 NT"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230808_fish1 TNY"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230808_fish2 TNY"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230809_fish1 TNY"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230810_fish3 NTY"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230810_fish4 NTY"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230814_fish2 SY"
+root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230814_fish4 SY"
+
 # %%
+DATA_FILE = 'dF_ksDensity' # dFF_adj dFF_ksDensity rawF
 raw_df = pd.read_csv(os.path.join(root, "rawF_df.csv"))
 mat = scipy.io.loadmat(os.path.join(root, DATA_FILE+'.mat'))[DATA_FILE]
-dFF = pd.DataFrame(data=mat)
+traces = pd.DataFrame(data=mat)
+
+# find baseline file
+baseline_file = 'baseline' + '_' + DATA_FILE.split('_')[1]
+if DATA_FILE.endswith('adj'):
+    baseline_file = baseline_file + '_adj'
+mat = scipy.io.loadmat(os.path.join(root, baseline_file+'.mat'))
+
+baseline_file_name = list(mat.keys())[-1]
+baseline_wide = pd.DataFrame(data=mat[baseline_file_name])
+baseline_cond1 = baseline_wide.iloc[0,:].values
+dFF = pd.DataFrame(data=np.divide(traces.values, baseline_cond1))
+
+
 
 if len(raw_df.columns) > len(dFF.columns):
     col_diff = len(raw_df.columns) - len(dFF.columns) 
@@ -172,13 +185,6 @@ while n_combined > 0:
     
 print(f'{all_combined} ROIs combined')
 
-# %%
-if if_plot:
-    df = df = dFF_long_roi_corrected.groupby(['frames','exp_cond','fish_id','area','ROI'])[DATA_FILE].mean().reset_index()
-    g = sns.relplot(row='exp_cond', kind='line', data=df,x='frames',y=DATA_FILE,units='ROI', estimator=None, alpha=0.1, aspect=3)
-    g.set(ylim=[0,20])
-
-
 
 # %%
 # Extract peaks and make a new dataframe of peaks
@@ -192,7 +198,7 @@ frame_for_amp = int(np.floor(time_for_amp * vol_rate))
 sel_unique_roi_level = ['area','repeat','ROI']
 idx_for_amp = dFF_long_roi_corrected.groupby(sel_unique_roi_level + ['nsti']).head(frame_for_amp).index
 rows_for_amp = dFF_long_roi_corrected.loc[idx_for_amp]
-amp_long = rows_for_amp.groupby(sel_unique_roi_level + ['nsti']).mean(numeric_only=True).reset_index()
+amp_long = rows_for_amp.groupby(sel_unique_roi_level + ['nsti']).median(numeric_only=True).reset_index()
 
 # %%
 # QC
@@ -203,7 +209,7 @@ BASE_THRESHOLD = 0.8  # std/mean
 LAST3s_THRESHOLD = 0.75 # dFF
 # 1. find ROIs with mean peak amp across all stimulus greater than threshold 
 amp_long_group = amp_long.groupby(sel_unique_roi_level)[DATA_FILE]
-ROI_pass1 = amp_long[(amp_long_group.transform('mean') > dFF_THRESHOLD) &  (amp_long_group.transform('std')/amp_long_group.transform('mean') < dFF_stdMean_THRESHOLD)].query("area == 1").ROI.unique()
+ROI_pass1 = amp_long[(amp_long_group.transform('median') > dFF_THRESHOLD) &  (amp_long_group.transform('std')/amp_long_group.transform('median') < dFF_stdMean_THRESHOLD)].query("area == 1").ROI.unique()
 print(f"{len(ROI_pass1)}/{len(ROI_metadata)} ROIs passed dFF threshold")
 
 # # 2. find ROIs with relatively stable baseline after each sti
@@ -221,8 +227,9 @@ print(f"{len(ROI_pass1)}/{len(ROI_metadata)} ROIs passed dFF threshold")
 # 3. find ROIs with response down to baseline at the end of each sti
 idx_for_last3sec = dFF_long_roi_corrected.groupby(sel_unique_roi_level + ['nsti']).tail(int(np.floor(3 * vol_rate))).index
 rows_for_last3sec = dFF_long_roi_corrected.loc[idx_for_last3sec]
-last3sec_long = rows_for_last3sec.groupby(sel_unique_roi_level + ['nsti'])[DATA_FILE].median(numeric_only=True).reset_index()
-last3sec_long_groupMean = last3sec_long.groupby(['ROI','area'])[DATA_FILE].median()
+last3sec_long = rows_for_last3sec.groupby(sel_unique_roi_level + ['nsti'])[DATA_FILE].mean(numeric_only=True).reset_index()
+last3sec_long = last3sec_long.query("area == 1")
+last3sec_long_groupMean = last3sec_long.groupby(['ROI','area'])[DATA_FILE].mean()
 ROI_pass3 = last3sec_long_groupMean.loc[last3sec_long_groupMean < LAST3s_THRESHOLD].reset_index().ROI.unique()
 print(f"{len(ROI_pass3)}/{len(ROI_metadata)} ROIs passed baseline threshold")
 
@@ -232,6 +239,58 @@ ROI_passQC = np.intersect1d(ROI_pass1, ROI_pass3)
 
 print(f"> {len(ROI_passQC)} passed QC")
 amp_selected = amp_long.loc[amp_long['ROI'].isin(ROI_passQC)]
+dFF_long_roi_selected = dFF_long_roi_corrected.loc[dFF_long_roi_corrected['ROI'].isin(ROI_passQC)]
+
+# %% look at different raw traces
+# peak time
+dFF_long_roi_averaged = dFF_long_roi_selected.groupby(['frames','exp_cond','fish_id','nsti','area','ROI',])[DATA_FILE].median().reset_index()
+df_peak_time = dFF_long_roi_averaged.groupby(['fish_id','exp_cond','area','ROI','nsti'])[DATA_FILE].apply(np.argmax).reset_index()
+df_peak_time = df_peak_time.assign(
+    peak_time = df_peak_time[DATA_FILE]/vol_rate
+)
+df_peak_time = df_peak_time.loc[df_peak_time.area.isin([1,2])]
+
+# categorize responses by their peak time in the first two 
+df_peak_time_cat = df_peak_time.loc[df_peak_time.nsti.isin([1,2])].groupby(['fish_id','exp_cond','area','ROI'])['peak_time'].mean().reset_index()
+df_peak_time_cat = df_peak_time_cat.assign(
+    peak_cat = pd.cut(df_peak_time_cat.peak_time, bins=[0, 2, 4, 5.5, np.inf], labels=['fast', 'mid', 'slow', 'late'])
+)
+
+df_peak_time_cat_area1 = df_peak_time_cat.query("area==1")
+
+dFF_long_roi_averaged = dFF_long_roi_averaged.merge(df_peak_time_cat_area1[['ROI','fish_id','peak_cat','peak_time']], on=['fish_id', 'ROI'])
+
+# %%
+# change of response to individual stimuli
+
+
+
+
+
+
+
+
+############### % check raw traces ##############
+df_toplt = dFF_long_roi_averaged.loc[dFF_long_roi_averaged['peak_cat'].isin(['fast','mid'])]
+df_toplt.peak_cat = df_toplt.peak_cat.astype(str)
+g = sns.relplot(row='exp_cond', col='peak_cat', kind='line', data=df_toplt, x='frames',y=DATA_FILE,units='ROI', estimator=None, alpha=0.1, aspect=3, height=1.8,
+                col_order=['fast','mid'])
+g.set(ylim=[0,10])
+
+
+# %%
+
+df_toplt = dFF_long_roi_selected.loc[dFF_long_roi_selected['ROI'] == ROI_passQC[k]]
+df_toplt = df_toplt.groupby(['frames','exp_cond','fish_id','nsti','area','ROI',])[DATA_FILE].median().reset_index()
+g = sns.relplot(row='exp_cond', kind='line', data=df_toplt, x='frames',y=DATA_FILE, alpha=.5, aspect=3, height=1.5,
+                # row_order=['dark','light'],
+                )
+# g.set(ylim=[0,10])
+
+k += 1
+
+
+############## RAW trace analysis done ##################
 
 # %% 
 ################## SLOPE on average amplitudes #################################
@@ -275,6 +334,17 @@ amp_avg = amp_avg.assign(
     r = corr
 )
 
+tocalc_slopeDiff = amp_avg.loc[amp_avg['cond_num'].isin([1, 2])]
+tocalc_slopeDiff = tocalc_slopeDiff.sort_values(by=['ROI'])
+slope_cond2 = tocalc_slopeDiff.query("cond_num == 2")
+slope_cond1 = tocalc_slopeDiff.query("cond_num == 1")
+slope_chg = slope_cond1[['cond_num', 'ROI', 'exp_cond']].copy()
+slope_chg = slope_chg.assign(
+    slope_chg = slope_cond2['slope_avgAmp'].values - slope_cond1['slope_avgAmp'].values,
+    slope_chg_ratio = (slope_cond2['slope_avgAmp'].values - slope_cond1['slope_avgAmp'].values)/slope_cond1['slope_avgAmp'].values
+)
+
+# %%
 # # use squared error to find ROIs with tuning 
 
 r_threshold = 0.8
@@ -283,11 +353,14 @@ print(f'Ratio of ROIs with > {r_threshold} correlation of amplitudes X stimulus:
 ROI_goodFit = amp_avg.loc[amp_avg['cond_num']==1,:].query("r > @r_threshold").ROI.values
 amp_goodFit_SlopeOnAveragedAmp = amp_avg.loc[amp_avg['ROI'].isin(ROI_goodFit)]
 
-x_name='exp_cond'
+amp_goodFit_SlopeOnAveragedAmp = amp_goodFit_SlopeOnAveragedAmp.assign(
+    exp_cond_ordered = amp_goodFit_SlopeOnAveragedAmp['cond_num'].astype(str) + amp_goodFit_SlopeOnAveragedAmp['exp_cond']
+)
+x_name='exp_cond_ordered'
 y_name='slope_avgAmp'
 units = 'ROI'
 
-p = plt_categorical_grid(
+p = plt_categorical_grid2(
     gridcol=None,
     gridrow=None,
     data=amp_goodFit_SlopeOnAveragedAmp,
@@ -295,23 +368,24 @@ p = plt_categorical_grid(
     y_name=y_name,
     units=units,
     height=3,
-    aspect=1.3
+    aspect=1.3,
 )
 
 # %% plot good tuning ROI
-
-ROI_goodTuning = amp_goodFit_SlopeOnAveragedAmp.query("cond_num == 1 & slope_avgAmp > 0.1").ROI.values
+slope_threshold = np.percentile(amp_goodFit_SlopeOnAveragedAmp.slope_avgAmp, 80)
+print(f"Slope thresholded {slope_threshold}")
+ROI_goodTuning = amp_goodFit_SlopeOnAveragedAmp.query("cond_num == 1 & slope_avgAmp > @slope_threshold").ROI.values
 amp_goodTuning = amp_goodFit_SlopeOnAveragedAmp.loc[amp_goodFit_SlopeOnAveragedAmp.ROI.isin(ROI_goodTuning)]
 
 sns.lineplot(data=amp_goodTuning, 
              x='cond_num', 
              y='slope_avgAmp')
 
-x_name='exp_cond'
+x_name='exp_cond_ordered'
 y_name='slope_avgAmp'
 units = 'ROI'
 
-p = plt_categorical_grid(
+p = plt_categorical_grid2(
     gridcol=None,
     gridrow=None,
     data=amp_goodTuning,
@@ -340,17 +414,19 @@ tuning_goodFit_longdf = tuning_goodFit_longdf.assign(
 )
 
 average_tuning_goodFit = tuning_goodFit_longdf.groupby(['exp_cond','ROI','stimulus']).median().reset_index()
-sns.lineplot(
+sns.relplot(
+    kind='line',
     data=average_tuning_goodFit,
+    row='exp_cond',
     x='stimulus',
     y=DATA_FILE,
-    hue='exp_cond',
+    estimator=None,
+    units='ROI',
+    alpha=0.2,
     palette=sns.color_palette("tab10"),
 )
 
-
 # %%
-
 ROI_metadata = ROI_metadata.assign(
     if_goodFit=0,
     if_goodTuning=0, 
@@ -360,42 +436,42 @@ ROI_metadata.loc[ROI_metadata['id'].isin(ROI_goodFit), 'if_goodFit'] = 1
 ROI_metadata.loc[ROI_metadata['id'].isin(ROI_goodTuning), 'if_goodTuning'] = 1
 ROI_metadata = ROI_metadata.merge(amp_avg.query("cond_num == 1")[['ROI', 'amp_4', 'slope_avgAmp']], how='left',left_on='id', right_on='ROI')
 
-dFF_long_roi_corrected.to_hdf(f'{root}/dFF_analyzed.h5', key='long_data', mode='w', format='table')
-ROI_metadata.to_hdf(f'{root}/dFF_analyzed.h5', key='roi_metadata', format='table')
+slope_chg = slope_chg.merge(ROI_metadata, how='left', left_on='ROI', right_on='id')
 
 # %%
 # look at diff of slopes between conditions
 
-df_sel = amp_goodTuning
-ctrl_df = df_sel.query("cond_num == 1").reset_index(drop=True)
-cond_df = df_sel.query("cond_num == 2").reset_index(drop=True)
-res = ctrl_df.copy()
-res = res.assign(
-    diff = cond_df['slope_avgAmp'] - ctrl_df['slope_avgAmp'], 
-)
-res = res.assign(
-    ratio = res['diff'] / res['slope_avgAmp']
-)
+df = slope_chg.query("if_goodFit == 1")
+
 plt.figure()
-sns.scatterplot(data=res,
-                x='slope_avgAmp',
-                y='diff')
+sns.scatterplot(data=df,
+                x='slope_chg',
+                y='slope_chg_ratio')
 plt.figure()
-sns.histplot(data=res,
-                y='diff',
+sns.histplot(data=df,
+                y='slope_chg',
                 bins=4)
 # %%
 # look at location of good tuning neurons
 
 
-df = ROI_metadata.query("if_goodFit == 1")
+df = slope_chg.query("if_goodTuning == 1")
 fig = px.scatter_3d(df, x='xCenter', y='yCenter', z='zPos',
-              size='slope_avgAmp', color='amp_4')
+              color='slope_chg_ratio',
+              color_continuous_scale=px.colors.diverging.balance
+              )
 fig.update_layout(
     scene=dict(
            aspectmode='data', #this string can be 'data', 'cube', 'auto', 'manual'
            )
 )
 fig.show()
+# %%
+
+dFF_long_roi_corrected.to_hdf(f'{root}/dFF_analyzed.h5', key='long_data', mode='w', format='table')
+ROI_metadata.to_hdf(f'{root}/dFF_analyzed.h5', key='roi_metadata', format='table')
+
+
 
 # %%
+# 

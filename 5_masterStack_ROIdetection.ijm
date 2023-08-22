@@ -3,6 +3,12 @@
 
 
 input = getDirectory("Input directory containing motion corrected z stacks");
+if_cell_body_input = getString("Cell bodies?: ", "y");
+if_cell_body = true;
+
+if (if_cell_body_input != "y") {
+	if_cell_body = false;
+}
 
 print("----");
 
@@ -71,7 +77,12 @@ function getROIs(fish_folder_dir) {
 			setAutoThreshold("Triangle dark no-reset stack");
 			run("Convert to Mask", "method=Triangle background=Dark black");
 			run("Watershed", "stack");
-			run("Analyze Particles...", "size=20-Infinity circularity=0.30-1.00 show=Nothing add stack");
+			if (if_cell_body) {
+				run("Analyze Particles...", "size=20-Infinity circularity=0.30-1.00 show=Nothing add stack");
+				}
+			else {
+				run("Analyze Particles...", "size=50-Infinity circularity=0.10-1.00 show=Nothing add stack");
+				}
 			roiNumber = roiManager("count");
 			roiManager("Select", newArray(roiNumber));
 			fileName = "RoiSet.zip";

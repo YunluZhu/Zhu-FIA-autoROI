@@ -7,19 +7,21 @@ import matplotlib.pyplot as plt
 from plot_functions.plt_tools import set_font_type
 import warnings
 
-def plt_categorical_grid(
+def plt_categorical_grid2(
     data:pd.DataFrame, 
     x_name:str, 
     y_name:str, 
-    gridrow:str, 
-    gridcol:str, 
     units:str, 
+    gridrow:str=None, 
+    gridcol:str=None, 
     errorbar=None, 
     sharey=True, 
     sns_palette='colorblind', 
     markertype='d', 
-    height=4, 
+    height=3, 
     aspect=0.8,
+    alpha=0.2,
+    **kwargs
     ):
     
     """build upon sns.catplot(), plots mean y_name vs x_name with individual repeats. Repeats are plotted as stripplot if number of repeats are different among groups defined by x_name, otherwise, repeats are connected.
@@ -39,10 +41,17 @@ def plt_categorical_grid(
         aspect (float, optional): aspect ratio of the graph. Defaults to 0.8.
     """
     set_font_type()
-    data = data.sort_values(by=x_name)
-    
-    assert_repeats = len(set(data.groupby([x_name])[units].apply(lambda x: len(x.unique())).values))
+    cat_cols = [x_name, units, gridrow, gridcol]
+    cat_cols = [ele for ele in cat_cols if ele is not None]
+
+    if_one_val_per_rep = data.groupby(cat_cols).size().max()
+    if if_one_val_per_rep > 1:
+        data = data.groupby(cat_cols)[y_name].mean().reset_index()
+    else:
+        data = data.sort_values(by=cat_cols).reset_index(drop=True)
         
+    assert_repeats = len(set(data.groupby([x_name])[units].apply(lambda x: len(x.unique())).values))
+    
     g = sns.catplot(
         data = data,
         col = gridcol,
@@ -57,6 +66,7 @@ def plt_categorical_grid(
         markers = [markertype]*len(set(data[x_name])),
         height = height,
         aspect = aspect,
+        **kwargs
         )
     if assert_repeats == 1:
         g.map(sns.lineplot,x_name,y_name,
@@ -65,7 +75,7 @@ def plt_categorical_grid(
             data = data,
             sort=False,
             color='grey',
-            alpha=0.2,
+            alpha=alpha,
             zorder=0,
             )
     else:
@@ -74,7 +84,9 @@ def plt_categorical_grid(
             color='lightgrey',
             zorder=0,
             order=data[x_name].unique().sort(),
+            alpha=0.5
             )
     g.add_legend()
     sns.despine(offset=10, trim=False)
     return g
+

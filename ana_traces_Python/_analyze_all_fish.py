@@ -1,7 +1,7 @@
 # %% 
 import sys
 import os,glob
-from func_analyze_traces import analyze_traces 
+from _func_analyze_traces import analyze_traces 
 from tqdm import tqdm
 
 # %%

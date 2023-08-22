@@ -35,10 +35,12 @@ function processFolder(input) {
         }
         ///////
         else if (startsWith(list[i], "ChanA_0")) { //if individual tiffs
-        	print(input);
-            seq2hyperZprojTproj(input, z);
-            close_all_windows();
-            break;
+        	if (indexOf(input, "anatomy") == -1) {
+	        	print(input);
+	            seq2hyperZprojTproj(input, z);
+	            close_all_windows();
+	            break;
+        	}
         }
         
         ///////

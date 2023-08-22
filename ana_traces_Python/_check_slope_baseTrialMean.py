@@ -3,6 +3,7 @@ nMLF pipeline visualization
 prerequisite: fluorescent traces extracted by MATLAB script. 
 HARD CODED for DURATION of STIMULUS 20s
 for details of the whole pipeline, see: https://benchling.com/s/etr-GCcRV7cmhRg7u4JQuDfr?m=slm-n9tOEQ0aekst3JyASOkw
+ONLY for dF or dFF calculated using the mean of baseline trials as baseline
 
 '''
 
@@ -17,24 +18,23 @@ import itertools
 from plot_functions.plt_functions import plt_categorical_grid
 
 
-DATA_FILE = 'dF_baseTrial' 
+DATA_FILE = 'dF_baseTrial' #dF_baseTrial # NOTE need to be .csv files
 if_plot = False
 # sel_area = [1,2]
 STIMULUS = [5, 10, 20, 30]
 nsti = len(STIMULUS)
 
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/light_2analyze/230630_fish1 ST"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/light_2analyze/230714_fish2 NT"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230618_fish1 prox_R"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230620_fish1 prox_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230622_fish2 distal_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230624_fish3 distal_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230626_fish1 distal_bi"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230727_fish1 NT"
 
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230714_fish1 prox_bi"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230725_fish1 NOSE DOWN"
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/_2analyze/230727_fish2 distal_bi"
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230727_fish1 NT"
+
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230808_fish1 TNY"
+root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230808_fish2 TNY"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230809_fish1 TNY"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230810_fish3 NTY"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230810_fish4 NTY"
+
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT/230814_fish2 SY"
+
 # %%
 raw_df = pd.read_csv(os.path.join(root, "rawF_df.csv"))
     
@@ -191,14 +191,14 @@ amp_long = rows_for_amp.groupby(sel_unique_roi_level + ['nsti']).mean(numeric_on
 # %%
 # QC
 
-dFF_THRESHOLD = 0.5  # mean peak amp of dFF
+dFF_THRESHOLD = 0.4  # mean peak amp of dFF
 dFF_stdMean_THRESHOLD = 1
 BASE_THRESHOLD = 0.8  # std/mean
-LAST3s_THRESHOLD = 0.75 # dFF
+LAST3s_THRESHOLD = 1000#0.75 # dFF
 # 1. find ROIs with mean peak amp across all stimulus greater than threshold 
 amp_long_group = amp_long.groupby(sel_unique_roi_level)[DATA_FILE]
 ROI_pass1 = amp_long[(amp_long_group.transform('mean') > dFF_THRESHOLD) &  (amp_long_group.transform('std')/amp_long_group.transform('mean') < dFF_stdMean_THRESHOLD)].query("area == 1").ROI.unique()
-print(f"{len(ROI_pass1)}/{len(ROI_metadata)} ROIs passed dFF threshold")
+print(f"{len(ROI_pass1)}/{len(ROI_metadata)} ROIs passed peak threshold")
 # 2. find ROIs with relatively stable baseline after each sti
 
 # baseline_file = 'baseline' + '_' + DATA_FILE.split('_')[1]
@@ -224,7 +224,7 @@ rows_for_last3sec = dFF_long_roi_corrected.loc[idx_for_last3sec]
 last3sec_long = rows_for_last3sec.groupby(sel_unique_roi_level + ['nsti'])[DATA_FILE].median(numeric_only=True).reset_index()
 last3sec_long_groupMean = last3sec_long.groupby(['ROI','area'])[DATA_FILE].median()
 ROI_pass3 = last3sec_long_groupMean.loc[last3sec_long_groupMean < LAST3s_THRESHOLD].reset_index().ROI.unique()
-print(f"{len(ROI_pass3)}/{len(ROI_metadata)} ROIs passed dFF threshold")
+print(f"{len(ROI_pass3)}/{len(ROI_metadata)} ROIs passed ending threshold")
 
 
 
@@ -300,8 +300,8 @@ p = plt_categorical_grid(
 )
 
 # %% plot good tuning ROI
-
-good_tuning_ROI = amp_goodFit_SlopeOnAveragedAmp.query("cond_num == 1 & slope_avgAmp > 0.1").ROI.values
+slope_threshold = np.percentile(amp_goodFit_SlopeOnAveragedAmp.slope_avgAmp, 75)
+good_tuning_ROI = amp_goodFit_SlopeOnAveragedAmp.query("cond_num == 1 & slope_avgAmp > @slope_threshold").ROI.values
 amp_goodTuning = amp_goodFit_SlopeOnAveragedAmp.loc[amp_goodFit_SlopeOnAveragedAmp.ROI.isin(good_tuning_ROI)]
 
 sns.lineplot(data=amp_goodTuning, 
@@ -322,6 +322,28 @@ p = plt_categorical_grid(
     height=3,
 )
 
+
+reg_tuning_ROI = amp_goodFit_SlopeOnAveragedAmp.query("cond_num == 1 & slope_avgAmp < @slope_threshold").ROI.values
+amp_regTuning = amp_goodFit_SlopeOnAveragedAmp.loc[amp_goodFit_SlopeOnAveragedAmp.ROI.isin(reg_tuning_ROI)]
+
+plt.figure()
+sns.lineplot(data=amp_regTuning, 
+             x='cond_num', 
+             y='slope_avgAmp')
+
+x_name='exp_cond'
+y_name='slope_avgAmp'
+units = 'ROI'
+
+p = plt_categorical_grid(
+    gridcol=None,
+    gridrow=None,
+    data=amp_regTuning,
+    x_name=x_name,
+    y_name=y_name,
+    units=units,
+    height=3,
+)
 
 # # %% Check one ROI tuning
 
