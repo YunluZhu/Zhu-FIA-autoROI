@@ -9,11 +9,13 @@ import os,glob
 import pandas as pd
 import numpy as np 
 import math
-from getAmp_fitDualSlope_wBaseTrials import getAmp_fitDualSlope_wBaseTrials
+from functions.getAmp_fitDualSlope import getAmp_fitDualSlope_kdeBaseCond1base
+
 
 # %%
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT"
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT"
 # if_reanalyze = 'n'
+
 # %%
 
 def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
@@ -32,9 +34,9 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
     
     folder_paths.sort()
     if if_reanalyze == 'y':
-        for fish_idx, fishfolder in enumerate(fishfolder):
-            if (os.path.isdir(fishfolder)) and ('fish' in folder_paths):
-                this_traces_avg, this_amp_long, this_slope, this_ROI_metadata, STIMULUS = getAmp_fitDualSlope_wBaseTrials(fishfolder)
+        for fish_idx, fishfolder in enumerate(folder_paths):
+            if (os.path.isdir(fishfolder)) and ('fish' in fishfolder):
+                this_traces_avg, this_amp_long, this_slope, this_ROI_metadata, STIMULUS = getAmp_fitDualSlope_kdeBaseCond1base(fishfolder)
                 traces_avg = pd.concat([traces_avg, this_traces_avg])
                 amp_long = pd.concat([amp_long, this_amp_long])
                 slope = pd.concat([slope, this_slope])
@@ -52,28 +54,38 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
                 ROI_metadata = pd.concat([ROI_metadata, this_ROI_metadata])
 
 #%%
-    nsti = len(STIMULUS)
+
     sti_map = dict([(ii+1, sti) for ii, sti  in enumerate(STIMULUS)])
+    
+    if 'lesion' in root:
+        exp1_name = 'prox'
+        exp2_name = 'dista'
+        exp2id_char = 'distal'   
+        
+    elif 'LT' in root:
+        exp1_name = 'nMLF'
+        exp2_name = 'TAN'
+        exp2id_char = 'S'
 
     traces_avg = traces_avg.assign(
         ROI_id = traces_avg['fish_id'] + '_' + traces_avg['ROI'].astype(str),
-        which_exp = 'nMLF',
+        which_exp = exp1_name,
         stimulus = traces_avg['nsti'].map(sti_map),
     )
-    traces_avg.loc[traces_avg['fish_info'].str.contains('S'), 'which_exp'] = 'TAN'
+    traces_avg.loc[traces_avg['fish_info'].str.contains(exp2id_char), 'which_exp'] = exp2_name
 
     slope = slope.assign(
         ROI_id = slope['fish_id'] + '_' + slope['ROI'].astype(str),
-        which_exp = 'nMLF',
+        which_exp = exp1_name,
     )
-    slope.loc[slope['fish_info'].str.contains('S'), 'which_exp'] = 'TAN'
+    slope.loc[slope['fish_info'].str.contains(exp2id_char), 'which_exp'] = exp2_name
 
     amp_long = amp_long.assign(
         ROI_id = amp_long['fish_id'] + '_' + amp_long['ROI'].astype(str),
-        NS = 'nMLF',
+        which_exp = exp1_name,
         stimulus = amp_long['nsti'].map(sti_map),
     )
-    amp_long.loc[amp_long['fish_info'].str.contains('S'), 'which_exp'] = 'TAN'
+    amp_long.loc[amp_long['fish_info'].str.contains(exp2id_char), 'which_exp'] = exp2_name
 
     # %%
     traces_avg.to_hdf(f'{root}/res_concatenated.h5', key='long_data', mode='w', format='table')
@@ -92,5 +104,10 @@ if __name__ == "__main__":
         if_reanalyze
     except NameError:
         if_reanalyze = input("- Reanalyze ROIs? (y/n): ")
-        
+
+    # try:
+    #     if_contain_base_trials
+    # except NameError:
+    #     if_contain_base_trials = input("- Get baseline from trials or not? (y/n): ")
+             
     batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze)

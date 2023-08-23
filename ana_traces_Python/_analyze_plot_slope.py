@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np 
 import seaborn as sns
 import math
-from getAmp_fitDualSlope_wBaseTrials import getAmp_fitDualSlope_wBaseTrials
-from plot_functions.plt_functions import plt_categorical_grid2
+from functions.getAmp_fitDualSlope import getAmp_fitDualSlope_wBaseTrials
+from functions.plt_functions import plt_categorical_grid2
 # %%
 root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT"
 traces_avg = pd.read_hdf(f"{root}/res_concatenated.h5", key='long_data')

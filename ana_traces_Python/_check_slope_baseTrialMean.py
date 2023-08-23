@@ -15,7 +15,7 @@ import os
 import scipy.io
 import matplotlib.pyplot as plt
 import itertools
-from plot_functions.plt_functions import plt_categorical_grid
+from functions.plt_functions import plt_categorical_grid
 
 
 DATA_FILE = 'dF_baseTrial' #dF_baseTrial # NOTE need to be .csv files

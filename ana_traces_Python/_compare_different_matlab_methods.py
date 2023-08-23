@@ -18,7 +18,7 @@ import os
 import scipy.io
 import matplotlib.pyplot as plt
 import itertools
-from plot_functions.plt_functions import plt_categorical_grid2
+from functions.plt_functions import plt_categorical_grid2
 import plotly.express as px
 # import plotly.graph_objs as go
 

@@ -1,4 +1,4 @@
-function [dFoF_KSDensity, mu] = extract_dFF_ksDensity(response)
+function [dFoF_KSDensity, dF_KSDensity, mu] = extract_dFF_ksDensity(response)
     numROIs=size(response,2);
     mu=[];
     [smoothDist,x] = ksdensity(response(:));
@@ -9,5 +9,6 @@ function [dFoF_KSDensity, mu] = extract_dFF_ksDensity(response)
       mu(thisROI) = mean(x(1:indPeak));
     end   
     FminusMu = bsxfun(@minus,response, mu);
+    dF_KSDensity = {FminusMu};
     dFoF_KSDensity = {bsxfun(@rdivide,FminusMu, mu)};
 end

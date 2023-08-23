@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np 
 import seaborn as sns
 import math
-from plot_functions.plt_functions import plt_categorical_grid2
-from doQC_getSlope import doQC_getSlope
+from functions.plt_functions import plt_categorical_grid2
+from functions.doQC_getSlope import doQC_getSlope_4LD
 import matplotlib.pyplot as plt
 
 #%%
@@ -13,10 +13,10 @@ import matplotlib.pyplot as plt
 root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT"
 
 #%%
-amp_QC, amp_goodFit, amp_goodTuning = doQC_getSlope(root)
+amp_QC, amp_goodFit, amp_goodTuning = doQC_getSlope_4LD(root)
 
 # %%
-STIMULUS = [0,5,10,20,30]
+STIMULUS_EXT = [0,5,10,20,30]
 fig_dir = f"{root}/figures"
 try:
     os.makedirs(fig_dir)
@@ -34,7 +34,7 @@ df = df.sort_values(by=['fish_id', 'ROI','exp_cond_ordered']).reset_index(drop=T
 # )
 df.rename(columns={'last3sec':'amp_0'}, inplace=True)
 df_toplt = pd.wide_to_long(df, stubnames='amp', i=['ROI_id', 'cond_num'], j='nsti', sep='_').reset_index()
-sti_map = dict([(ii, sti) for ii, sti  in enumerate(STIMULUS)])
+sti_map = dict([(ii, sti) for ii, sti  in enumerate(STIMULUS_EXT)])
 df_toplt = df_toplt.assign(
     stimulus = df_toplt['nsti'].map(sti_map),
 )
@@ -107,20 +107,22 @@ df_change = df_change.assign(
     amp_chg_norm = (light_df['amp'].values - dark_df['amp'].values)/ (light_df['amp'].values + dark_df['amp'].values),
 )
 df_change = df_change.query('nsti != 0')
+df_change = df_change.loc[df_change['amp_chg_norm'].abs() < 1]
 
-y_name='amp_chg_norm'
-x_name='which_exp'
+for y_name in ['amp_chg', 'amp_chg_ratio', 'amp_chg_norm']:
+    x_name='which_exp'
 
-g = plt_categorical_grid2(
-    data=df_change,
-    y_name=y_name,
-    x_name=x_name,
-    gridcol='stimulus',
-    # gridrow='stimulus',
-    units='ROI_id',
-    aspect=0.7
-)
-# g.set(ylim=[-1,5])
-plt.savefig(f"{fig_dir}/AmpChg {y_name}_{x_name}.pdf", format='PDF')
+    g = plt_categorical_grid2(
+        data=df_change,
+        y_name=y_name,
+        x_name=x_name,
+        gridcol='stimulus',
+        # gridrow='stimulus',
+        units='ROI_id',
+        aspect=0.7
+    )
+    if y_name != 'amp_chg_norm':
+        g.set(ylim=[np.percentile(df_change[y_name], 1),np.percentile(df_change[y_name], 99)])
+    plt.savefig(f"{fig_dir}/AmpChg {y_name}_{x_name}.pdf", format='PDF')
 
 # %%

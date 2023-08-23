@@ -32,7 +32,8 @@ def np_pearson_cor(x, y):
     return np.maximum(np.minimum(result, 1.0), -1.0)
 
     # %%
-def getAmp_fitDualSlope_wBaseTrials(root, STIMULUS=[5, 10, 20, 30]):
+
+def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30]):
     # %%
     DATA_FILE='dF_ksDensity'
     fig_dir = f"{root}/figures"
@@ -59,8 +60,8 @@ def getAmp_fitDualSlope_wBaseTrials(root, STIMULUS=[5, 10, 20, 30]):
     baseline_cond1 = baseline_wide.iloc[0,:].values
     dFF = pd.DataFrame(data=np.divide(traces.values, baseline_cond1))
     
-    baseline_diff = baseline_wide.diff().iloc[1,:].T
-    ROI_resonable_baseline = list(baseline_diff.loc[baseline_diff>0].index + 1)
+    # baseline_diff = baseline_wide.diff().iloc[1,:].T
+    # ROI_resonable_baseline = list(baseline_diff.loc[baseline_diff>0].index + 1)
 
     if len(raw_df.columns) > len(dFF.columns):
         col_diff = len(raw_df.columns) - len(dFF.columns) 
@@ -150,9 +151,9 @@ def getAmp_fitDualSlope_wBaseTrials(root, STIMULUS=[5, 10, 20, 30]):
     # map to the response result dataframe
     ROI_RESPONSE_CORR_THRESHOLD = 0.8
     
-    print(f"- {len(ROI_resonable_baseline)}/{len(ROI_metadata)} ROIs with reasonable baseline")
+    # print(f"- {len(ROI_resonable_baseline)}/{len(ROI_metadata)} ROIs with reasonable baseline")
 
-    dFF_long_roi_corrected = dFF_long.loc[dFF_long['ROI'].isin(ROI_resonable_baseline)]
+    dFF_long_roi_corrected = dFF_long#.loc[dFF_long['ROI'].isin(ROI_resonable_baseline)]
 
     n_combined = 1000
     all_combined = 0
@@ -423,5 +424,3 @@ def getAmp_fitDualSlope_wBaseTrials(root, STIMULUS=[5, 10, 20, 30]):
     res_slope.to_hdf(f'{root}/dFF_analyzed.h5', key='slope', format='table')
 
     return res_traces_avg, res_amp_long, res_slope, ROI_metadata, STIMULUS
-
-# %%

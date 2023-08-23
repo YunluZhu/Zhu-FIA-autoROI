@@ -4,7 +4,7 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from plot_functions.plt_tools import set_font_type
+from functions.plt_tools import set_font_type
 import warnings
 
 def plt_categorical_grid2(
