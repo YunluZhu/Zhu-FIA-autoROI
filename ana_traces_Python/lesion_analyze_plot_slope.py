@@ -70,21 +70,25 @@ cond1_tuning = cond1_tuning.assign(
     slope_chg_ratio = (cond2_tuning[which_slope].values - cond1_tuning[which_slope].values) /  cond1_tuning[which_slope].values,
     slope_chg_norm = (cond2_tuning[which_slope].values - cond1_tuning[which_slope].values) /  (cond2_tuning[which_slope].values + cond1_tuning[which_slope].values)
 )
+exclude_for_plotting1 = cond1_tuning.loc[cond1_tuning['slope_chg_norm'].abs() > 1].ROI_id.unique()
+exclude_for_plotting2 = cond1_tuning.loc[(cond1_tuning['amp_1'] < 0)].ROI_id.unique()
+exclude_for_plotting = np.union1d(exclude_for_plotting1, exclude_for_plotting2)
+
+df_change = cond1_tuning.loc[~cond1_tuning['ROI_id'].isin(exclude_for_plotting)]
+
 
 for y_name in ['slope_chg', 'slope_chg_ratio', 'slope_chg_norm']:
 
     x_name='which_exp'
 
-    cond1_tuning = cond1_tuning.loc[cond1_tuning['slope_chg_norm'].abs() < 1]
-
     g = plt_categorical_grid2(
-        data=cond1_tuning,
+        data=df_change,
         y_name=y_name,
         x_name=x_name,
         units='ROI_id'
     )
     if y_name != 'slope_chg_norm':
-        g.set(ylim=[np.percentile(cond1_tuning[y_name], 1),np.percentile(cond1_tuning[y_name], 99)])
+        g.set(ylim=[np.percentile(df_change[y_name], .1),np.percentile(df_change[y_name], 99)])
     else:
         g.set(ylim=[-1,1])
     plt.savefig(f"{fig_dir}/slopeChg {y_name}X{x_name}.pdf", format='PDF')

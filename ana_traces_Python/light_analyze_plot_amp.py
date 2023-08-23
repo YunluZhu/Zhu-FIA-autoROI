@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 #%%
 
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT"
+root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light"
 
 #%%
 amp_QC, amp_goodFit, amp_goodTuning = doQC_getSlope_4LD(root)
@@ -107,7 +107,11 @@ df_change = df_change.assign(
     amp_chg_norm = (light_df['amp'].values - dark_df['amp'].values)/ (light_df['amp'].values + dark_df['amp'].values),
 )
 df_change = df_change.query('nsti != 0')
-df_change = df_change.loc[df_change['amp_chg_norm'].abs() < 1]
+exclude_for_plotting1 = df_change.loc[df_change['amp_chg_norm'].abs() > 1].ROI_id.unique()
+exclude_for_plotting2 = dark_df.loc[(dark_df['nsti'] > 0) & (dark_df['amp'] < 0)].ROI_id.unique()
+exclude_for_plotting = np.union1d(exclude_for_plotting1, exclude_for_plotting2)
+
+df_change = df_change.loc[~df_change['ROI_id'].isin(exclude_for_plotting)]
 
 for y_name in ['amp_chg', 'amp_chg_ratio', 'amp_chg_norm']:
     x_name='which_exp'
@@ -122,7 +126,7 @@ for y_name in ['amp_chg', 'amp_chg_ratio', 'amp_chg_norm']:
         aspect=0.7
     )
     if y_name != 'amp_chg_norm':
-        g.set(ylim=[np.percentile(df_change[y_name], 1),np.percentile(df_change[y_name], 99)])
+        g.set(ylim=[np.percentile(df_change[y_name], 0.02),np.percentile(df_change[y_name], 99)])
     plt.savefig(f"{fig_dir}/AmpChg {y_name}_{x_name}.pdf", format='PDF')
 
 # %%

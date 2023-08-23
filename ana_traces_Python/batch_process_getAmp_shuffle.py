@@ -13,14 +13,13 @@ from functions.getAmp_fitDualSlope import getAmp_fitDualSlope_kdeBaseCond1base
 
 
 # %%
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion"
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light"
-
+root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT"
 if_reanalyze = 'y'
 
 # %%
 
-def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
+def batch_getAmp_fitDualSlope_wBaseTrials_shuffle(root, if_reanalyze):
+    print("Shuffle conditions by fish:")
     STIMULUS = [5, 10, 20, 30]
     folder_paths = []
     all_fish = []
@@ -38,7 +37,7 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
     if if_reanalyze == 'y':
         for fish_idx, fishfolder in enumerate(folder_paths):
             if (os.path.isdir(fishfolder)) and ('fish' in fishfolder):
-                this_traces_avg, this_amp_long, this_slope, this_ROI_metadata, STIMULUS = getAmp_fitDualSlope_kdeBaseCond1base(fishfolder)
+                this_traces_avg, this_amp_long, this_slope, this_ROI_metadata, STIMULUS = getAmp_fitDualSlope_kdeBaseCond1base(fishfolder, if_shuffle=True)
                 traces_avg = pd.concat([traces_avg, this_traces_avg])
                 amp_long = pd.concat([amp_long, this_amp_long])
                 slope = pd.concat([slope, this_slope])
@@ -46,10 +45,10 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
     else:
         for fish_idx, fishfolder in enumerate(folder_paths):
             if (os.path.isdir(fishfolder)) and ('fish' in fishfolder):
-                this_traces_avg = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='traces')
-                this_amp_long = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='amp')
-                this_slope = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='slope')
-                this_ROI_metadata = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='roi_metadata')
+                this_traces_avg = pd.read_hdf(f'{fishfolder}/dFF_shuffled.h5', key='traces')
+                this_amp_long = pd.read_hdf(f'{fishfolder}/dFF_shuffled.h5', key='amp')
+                this_slope = pd.read_hdf(f'{fishfolder}/dFF_shuffled.h5', key='slope')
+                this_ROI_metadata = pd.read_hdf(f'{fishfolder}/dFF_shuffled.h5', key='roi_metadata')
                 traces_avg = pd.concat([traces_avg, this_traces_avg])
                 amp_long = pd.concat([amp_long, this_amp_long])
                 slope = pd.concat([slope, this_slope])
@@ -64,7 +63,7 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
         exp2_name = 'dista'
         exp2id_char = 'distal'   
         
-    elif 'light' in root:
+    elif 'LT' in root:
         exp1_name = 'nMLF'
         exp2_name = 'TAN'
         exp2id_char = 'S'
@@ -90,10 +89,10 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
     amp_long.loc[amp_long['fish_info'].str.contains(exp2id_char), 'which_exp'] = exp2_name
 
     # %%
-    traces_avg.to_hdf(f'{root}/res_concatenated.h5', key='long_data', mode='w', format='table')
-    ROI_metadata.to_hdf(f'{root}/res_concatenated.h5', key='roi_metadata', format='table')
-    slope.to_hdf(f'{root}/res_concatenated.h5', key='slope', format='table')
-    amp_long.to_hdf(f'{root}/res_concatenated.h5', key='amp', format='table')
+    traces_avg.to_hdf(f'{root}/res_shuffled.h5', key='long_data', mode='w', format='table')
+    ROI_metadata.to_hdf(f'{root}/res_shuffled.h5', key='roi_metadata', format='table')
+    slope.to_hdf(f'{root}/res_shuffled.h5', key='slope', format='table')
+    amp_long.to_hdf(f'{root}/res_shuffled.h5', key='amp', format='table')
     
 #%%
 if __name__ == "__main__":
@@ -112,4 +111,4 @@ if __name__ == "__main__":
     # except NameError:
     #     if_contain_base_trials = input("- Get baseline from trials or not? (y/n): ")
              
-    batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze)
+    batch_getAmp_fitDualSlope_wBaseTrials_shuffle(root, if_reanalyze)

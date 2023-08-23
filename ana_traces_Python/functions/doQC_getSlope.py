@@ -28,7 +28,7 @@ def doQC_getSlope_4LD(root):
     endRes_threshold = 0.7
     r_threshold = 0.5
     # sq_residual_avg_threshold = 100
-    slope_threshold = 0.08
+    slope_threshold = 0.1
 
     # 1. how does peak amp change across repeats? -------------------
     # exclude ROIs that increase responses as the trial goes on
@@ -121,7 +121,7 @@ def doQC_getSlope_4lesion(root):
     endRes_threshold = 0.7
     r_threshold = 0.5
     # sq_residual_avg_threshold = 100
-    slope_threshold = 0.08
+    slope_threshold = 0.1
 
 
     # 1. how does peak amp change across repeats? -------------------

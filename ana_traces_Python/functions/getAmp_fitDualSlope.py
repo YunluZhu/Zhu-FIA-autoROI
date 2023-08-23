@@ -13,6 +13,7 @@ import itertools
 import plotly.express as px
 import plotly.graph_objs as go
 import time
+import random
 
 def pairwise_correlation(A, B):
     am = A - np.mean(A, axis=0, keepdims=True)
@@ -33,7 +34,7 @@ def np_pearson_cor(x, y):
 
     # %%
 
-def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30]):
+def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuffle=False, shuffle_cond=[1,2]):
     # %%
     DATA_FILE='dF_ksDensity'
     fig_dir = f"{root}/figures"
@@ -75,7 +76,21 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30]):
     dFF = dFF.assign(
         frames = list(np.arange(trial_frames)) * nreps
     )
-
+    
+    if if_shuffle:
+        # SHUFFLE area repeats together
+        dFF_1 = dFF.loc[dFF['area'].isin(shuffle_cond)]
+        dFF_2 = dFF.loc[~dFF['area'].isin(shuffle_cond)]
+        groups = [dFF_1 for _, dFF_1 in dFF_1.groupby(['area','repeat','frames'])]
+        random.shuffle(groups)
+        dFF1_sh = pd.concat(groups).reset_index(drop=True)
+        dFF_1 = dFF_1.assign(
+            area = dFF1_sh.area.values,
+            repeat = dFF1_sh.repeat.values,
+            frames = dFF1_sh.frames.values,
+        )
+        dFF = pd.concat([dFF_1, dFF_2], ignore_index=True)
+    
     # find fish info
     fish_info = root.split("/")[-1].split(" ")
     exp_date, fishNum = fish_info[0].split("_")
@@ -229,7 +244,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30]):
     # the dFF_long_roi_corrected should contain time column
    # find the idx of time of response during a certain winder after each sti
     amp_cols = ['amp_' + str(sti) for sti in np.arange(nsti)+1]
-    time_for_amp = 3 #sec
+    time_for_amp = 4 #sec
     frame_for_amp = int(np.floor(time_for_amp * vol_rate))
 
     sel_unique_roi_level = ['area','repeat','ROI']
@@ -240,15 +255,15 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30]):
     # %%
     # QC
 
-    dFF_THRESHOLD = 0.5  # mean peak amp of dFF
+    dFF_THRESHOLD = 0.3  # mean peak amp of dFF
     # dFF_stdMean_THRESHOLD = 10
     # BASE_THRESHOLD = 0.8  # std/mean
     LAST3s_THRESHOLD = 1 # dFF
 
     # 1. find ROIs with mean peak amp across all stimulus greater than threshold 
-    amp_long_cond1_group_median = amp_long.query("area == 1").groupby(sel_unique_roi_level + ['nsti'])[DATA_FILE].median().reset_index() # mdian across repeats for each sti of each ROI
-    amp_long_cond1_group_max = amp_long_cond1_group_median.groupby(sel_unique_roi_level)[DATA_FILE].max().reset_index() # max of the amp to all sti should pass threshold
-    ROI_pass1 = amp_long_cond1_group_max.loc[amp_long_cond1_group_max[DATA_FILE] > dFF_THRESHOLD].ROI.unique()
+    amp_long_ampfilter = amp_long.loc[amp_long['area'].isin([1,2])].groupby(['area','ROI', 'nsti'])[DATA_FILE].median().reset_index() # mdian across repeats for each sti of each ROI
+    amp_long_ampfilter_max = amp_long_ampfilter.groupby(['area','ROI'])[DATA_FILE].max().reset_index() # max of the amp to all sti should pass threshold
+    ROI_pass1 = amp_long_ampfilter_max.loc[amp_long_ampfilter_max[DATA_FILE] > dFF_THRESHOLD].ROI.unique()
     print(f"- {len(ROI_pass1)}/{len(dFF_long_roi_corrected.ROI.unique())} ROIs passed dFF threshold")
 
     # 2. find ROIs with relatively stable responses across repeats
@@ -282,12 +297,13 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30]):
     ############# look at different raw traces #############
     # peak time
     dFF_long_roi_averaged = dFF_long_roi_selected.groupby(['frames','exp_cond','fish_id','nsti','area','ROI',])[DATA_FILE].median().reset_index()
-    df_peak_time = dFF_long_roi_averaged.groupby(['fish_id','exp_cond','area','ROI','nsti']).head(int(5*vol_rate)).groupby(['fish_id','exp_cond','area','ROI','nsti'])[DATA_FILE].apply(np.argmax).reset_index()
+    df_peak_time_perRep = dFF_long_roi_selected.groupby(['fish_id','exp_cond','area','ROI','nsti','repeat']).head(int(5*vol_rate)).groupby(['fish_id','exp_cond','area','ROI','nsti','repeat'])[DATA_FILE].apply(np.argmax).reset_index()
+    df_peak_time = df_peak_time_perRep.groupby(['fish_id','exp_cond','area','ROI','nsti'])[DATA_FILE].mean().reset_index()
     df_peak_time = df_peak_time.assign(
         peak_time = df_peak_time[DATA_FILE]/vol_rate
     )
 
-    # categorize responses by their peak time in selected two stimulus
+    # categorize responses by their peak time in selected stimulus
     df_peak_time_cat = df_peak_time.loc[df_peak_time.nsti.isin([2,3,4])].groupby(['fish_id','exp_cond','area','ROI'])['peak_time'].median().reset_index()
     df_peak_time_cat = df_peak_time_cat.assign(
         peak_cat = pd.cut(df_peak_time_cat.peak_time, bins=[-np.inf, 1.5, 5.5, np.inf], labels=['fast', 'slow', 'late'])
@@ -413,14 +429,18 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30]):
     ).rename(columns={'area':'cond_num'})
 
     # %%
-
+    filename = 'dFF_analyzed.h5'
+    
+    if if_shuffle:
+        filename = 'dFF_shuffled.h5'
+        
     res_traces_avg.rename(columns={DATA_FILE:'dFF'}, inplace=True)
     res_amp_long.rename(columns={DATA_FILE:'dFF'}, inplace=True)
     res_slope.rename(columns={DATA_FILE:'dFF'}, inplace=True)
 
-    res_amp_long.to_hdf(f'{root}/dFF_analyzed.h5', key='amp', mode='w', format='table')
-    res_traces_avg.to_hdf(f'{root}/dFF_analyzed.h5', key='traces', format='table')
-    ROI_metadata.to_hdf(f'{root}/dFF_analyzed.h5', key='roi_metadata', format='table')
-    res_slope.to_hdf(f'{root}/dFF_analyzed.h5', key='slope', format='table')
+    res_amp_long.to_hdf(f'{root}/{filename}', key='amp', mode='w', format='table')
+    res_traces_avg.to_hdf(f'{root}/{filename}', key='traces', format='table')
+    ROI_metadata.to_hdf(f'{root}/{filename}', key='roi_metadata', format='table')
+    res_slope.to_hdf(f'{root}/{filename}', key='slope', format='table')
 
     return res_traces_avg, res_amp_long, res_slope, ROI_metadata, STIMULUS

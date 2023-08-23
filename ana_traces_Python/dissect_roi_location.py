@@ -7,15 +7,15 @@ import math
 from functions.plt_functions import plt_categorical_grid2
 from functions.doQC_getSlope import doQC_getSlope_4lesion
 import matplotlib.pyplot as plt
+from sklearn import preprocessing as pre
 
 #%%
 
 root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion"
 
-#%%
 amp_QC, amp_goodFit, amp_goodTuning = doQC_getSlope_4lesion(root)
+ROI_metadata = pd.read_hdf(f'{root}/res_concatenated.h5', key='roi_metadata')
 
-# %%
 STIMULUS_EXT = [0,5,10,20,30]
 fig_dir = f"{root}/figures"
 try:
@@ -40,64 +40,7 @@ df_toplt = df_toplt.assign(
 )
 
 df_toplt.loc[df_toplt['cond_num']==2, 'exp_cond_ordered'] = '2lesion'
-# %% plot
-sns.relplot(
-    kind='line',
-    data=df_toplt.loc[df_toplt['cond_num'].isin([1,2])],
-    x='stimulus',
-    y='amp',
-    units='ROI_id',
-    estimator=None,
-    row='which_exp',
-    col='exp_cond_ordered',
-    alpha=0.1,
-    height=3
-)
-plt.savefig(f"{fig_dir}/goodTuning rawLine ampXstimulus.pdf", format='PDF')
 
-
-sns.relplot(
-    kind='line',
-    data=df_toplt.loc[df_toplt['cond_num'].isin([1,2])],
-    x='stimulus',
-    y='amp',
-    row='which_exp',
-    hue='exp_cond_ordered',
-    height=3
-)
-plt.savefig(f"{fig_dir}/goodTuning avgLine ampXstimulus.pdf", format='PDF')
-
-
-# %%
-
-# %%
-g = plt_categorical_grid2(
-    data=df_toplt.loc[df_toplt['cond_num'].isin([1,2])],
-    gridcol='stimulus',
-    y_name='amp',
-    gridrow='which_exp',
-    x_name='exp_cond_ordered',
-    units='ROI_id',
-    alpha=0.1,
-    aspect=0.7
-)
-g.set(ylim=[-0.4, np.percentile(df_toplt.amp, 99.9)])
-plt.savefig(f"{fig_dir}/goodTuning ampXcond.pdf", format='PDF')
-
-# %%
-g = plt_categorical_grid2(
-    data=df_toplt.loc[(df_toplt['cond_num'].isin([1,2])) & (df_toplt['nsti'].isin([1,2,3])),:],
-    gridcol='stimulus',
-    y_name='amp',
-    gridrow='which_exp',
-    x_name='exp_cond_ordered',
-    units='ROI_id',
-    alpha=0.1,
-    aspect=0.7
-)
-plt.savefig(f"{fig_dir}/goodTuning lowAngSel ampXcond.pdf", format='PDF')
-
-# %%
 df_toplt = df_toplt.sort_values(by=['ROI_id','cond_num','nsti']).reset_index(drop=True)
 
 cond1_df = df_toplt.query("cond_num == 1")
@@ -114,21 +57,30 @@ exclude_for_plotting2 = cond1_df.loc[(cond1_df['nsti'] > 0) & (cond1_df['amp'] <
 exclude_for_plotting = np.union1d(exclude_for_plotting1, exclude_for_plotting2)
 
 df_change = df_change.loc[~df_change['ROI_id'].isin(exclude_for_plotting)]
+# %%
+ROI_metadata = ROI_metadata.assign(
+    ROI_id = ROI_metadata['fish_id'] + '_' + ROI_metadata['id'].astype(str)
+)
+# %%
 
-for y_name in ['amp_chg', 'amp_chg_ratio', 'amp_chg_norm']:
-    x_name='which_exp'
 
-    g = plt_categorical_grid2(
-        data=df_change,
-        y_name=y_name,
-        x_name=x_name,
-        gridcol='stimulus',
-        # gridrow='stimulus',
-        units='ROI_id',
-        aspect=0.7
-    )
-    if y_name != 'amp_chg_norm':
-        g.set(ylim=[np.percentile(df_change[y_name], 0.1),np.percentile(df_change[y_name], 99)])
-    plt.savefig(f"{fig_dir}/AmpChg {y_name}_{x_name}.pdf", format='PDF')
+
+# anatomical?
+df_change = df_change.assign(
+    amp_chg_cat = pd.cut(df_change['amp_chg_norm'], bins=[-1, -0.1, 0.1, 1], labels = ['reduced', 'noChg', 'increased'])
+)
+amp_chg_mata = df_change.merge(ROI_metadata, on='ROI_id')
+# %
+sns.scatterplot(
+    data=amp_chg_mata.query("nsti==4"),
+    hue='amp_chg_cat',
+    x='xCenter',
+    y='yCenter'
+)
+plt.axis('equal')
+
+# %%
+
+# %%
 
 # %%
