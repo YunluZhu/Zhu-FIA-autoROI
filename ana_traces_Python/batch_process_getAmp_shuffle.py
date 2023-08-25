@@ -13,8 +13,8 @@ from functions.getAmp_fitDualSlope import getAmp_fitDualSlope_kdeBaseCond1base
 
 
 # %%
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT"
-if_reanalyze = 'y'
+root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light"
+if_reanalyze = 'n'
 
 # %%
 
@@ -63,10 +63,12 @@ def batch_getAmp_fitDualSlope_wBaseTrials_shuffle(root, if_reanalyze):
         exp2_name = 'dista'
         exp2id_char = 'distal'   
         
-    elif 'LT' in root:
+    elif 'light' in root:
         exp1_name = 'nMLF'
         exp2_name = 'TAN'
         exp2id_char = 'S'
+        
+        
 
     traces_avg = traces_avg.assign(
         ROI_id = traces_avg['fish_id'] + '_' + traces_avg['ROI'].astype(str),

@@ -13,9 +13,11 @@ from functions.getAmp_fitDualSlope import getAmp_fitDualSlope_kdeBaseCond1base
 
 
 # %%
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion"
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light"
-
+# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion"
+root_list = [
+    "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light",
+    "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion",
+]
 if_reanalyze = 'y'
 
 # %%
@@ -98,7 +100,7 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
 #%%
 if __name__ == "__main__":
     try:
-        print(f'- Directory: {root}')
+        print(f'- Directory: {root_list}')
     except:
         root = input("- Where's the root folder?: ")
 
@@ -107,9 +109,11 @@ if __name__ == "__main__":
     except NameError:
         if_reanalyze = input("- Reanalyze ROIs? (y/n): ")
 
+
+ 
     # try:
     #     if_contain_base_trials
     # except NameError:
     #     if_contain_base_trials = input("- Get baseline from trials or not? (y/n): ")
-             
-    batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze)
+    for root in root_list:         
+        batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze)

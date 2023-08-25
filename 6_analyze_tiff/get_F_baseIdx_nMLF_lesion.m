@@ -21,7 +21,7 @@
 % 
 
 root_dir = '/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion';
-root_dir = '/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/analyzed_uniLesion';
+root_dir = '/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion_manualROI';
 if_bkg_adj = false;
 
 

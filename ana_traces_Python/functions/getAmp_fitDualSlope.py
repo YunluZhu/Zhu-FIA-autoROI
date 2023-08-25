@@ -14,6 +14,7 @@ import plotly.express as px
 import plotly.graph_objs as go
 import time
 import random
+from scipy.signal import savgol_filter
 
 def pairwise_correlation(A, B):
     am = A - np.mean(A, axis=0, keepdims=True)
@@ -293,25 +294,28 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     # print(f"> {len(ROI_passQC)} passed QC")
     amp_selected = amp_long.loc[amp_long['ROI'].isin(ROI_passQC)]
     dFF_long_roi_selected = dFF_long_roi_corrected.loc[dFF_long_roi_corrected['ROI'].isin(ROI_passQC)]
+    dFF_long_roi_averaged = dFF_long_roi_selected.groupby(['exp_cond','fish_id','nsti','area','ROI','frames'])[DATA_FILE].median().reset_index()
 
     ############# look at different raw traces #############
     # peak time
-    dFF_long_roi_averaged = dFF_long_roi_selected.groupby(['frames','exp_cond','fish_id','nsti','area','ROI',])[DATA_FILE].median().reset_index()
-    df_peak_time_perRep = dFF_long_roi_selected.groupby(['fish_id','exp_cond','area','ROI','nsti','repeat']).head(int(5*vol_rate)).groupby(['fish_id','exp_cond','area','ROI','nsti','repeat'])[DATA_FILE].apply(np.argmax).reset_index()
-    df_peak_time = df_peak_time_perRep.groupby(['fish_id','exp_cond','area','ROI','nsti'])[DATA_FILE].mean().reset_index()
+    dFF_long_roi_selected = dFF_long_roi_selected.sort_values(['exp_cond','fish_id','nsti','area','ROI','repeat']).reset_index(drop=True)
+    df_peak_time_perRep = dFF_long_roi_selected.groupby(['fish_id','exp_cond','area','ROI','nsti','repeat']).head(int(6*vol_rate)).groupby(['fish_id','exp_cond','area','ROI','nsti','repeat'])[DATA_FILE].apply(np.argmax).reset_index()
+    df_peak_time_onTrialAvg = df_peak_time_perRep.groupby(['fish_id','exp_cond','area','ROI','nsti'])[DATA_FILE].median().reset_index()
+    df_peak_time = dFF_long_roi_averaged.groupby(['fish_id','exp_cond','area','ROI','nsti']).head(int(6*vol_rate)).groupby(['fish_id','exp_cond','area','ROI','nsti'])[DATA_FILE].apply(np.argmax).reset_index()
     df_peak_time = df_peak_time.assign(
-        peak_time = df_peak_time[DATA_FILE]/vol_rate
+        peak_time_onAvgTrial = (df_peak_time[DATA_FILE].values)/vol_rate,
+        peak_time_onTrialAvg = (df_peak_time_onTrialAvg[DATA_FILE].values)/vol_rate,
     )
 
     # categorize responses by their peak time in selected stimulus
-    df_peak_time_cat = df_peak_time.loc[df_peak_time.nsti.isin([2,3,4])].groupby(['fish_id','exp_cond','area','ROI'])['peak_time'].median().reset_index()
+    df_peak_time_cat = df_peak_time.loc[df_peak_time.nsti.isin([1,2])].groupby(['fish_id','exp_cond','area','ROI'])['peak_time_onTrialAvg'].mean().reset_index()
     df_peak_time_cat = df_peak_time_cat.assign(
-        peak_cat = pd.cut(df_peak_time_cat.peak_time, bins=[-np.inf, 1.5, 5.5, np.inf], labels=['fast', 'slow', 'late'])
+        peak_cat = pd.cut(df_peak_time_cat.peak_time_onTrialAvg, bins=[-1, 0.4, 5], labels=['fast','slow'])
     )
 
     df_peak_time_cat_area1 = df_peak_time_cat.query("area==1")
 
-    res_traces_avg = dFF_long_roi_averaged.merge(df_peak_time_cat[['ROI','fish_id','peak_cat','peak_time','area']], on=['fish_id', 'ROI','area'])
+    res_traces_avg = dFF_long_roi_averaged.merge(df_peak_time_cat[['ROI','fish_id','peak_cat','peak_time_onTrialAvg','area']], on=['fish_id', 'ROI','area'])
     res_traces_avg = res_traces_avg.assign(
         fish_id = fish_info[0],
         fish_info = fish_info[1],
@@ -321,7 +325,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     # change of response to individual stimuli
 
     ############### % check raw traces ##############
-    df_toplt = dFF_long_roi_averaged.merge(df_peak_time_cat_area1[['ROI','fish_id','peak_cat','peak_time']], on=['fish_id', 'ROI'])
+    df_toplt = dFF_long_roi_averaged.merge(df_peak_time_cat_area1[['ROI','fish_id','peak_cat','peak_time_onTrialAvg']], on=['fish_id', 'ROI'])
     df_toplt.peak_cat = df_toplt.peak_cat.astype(str)
     g = sns.relplot(row='exp_cond', col='peak_cat', kind='line', data=df_toplt, x='frames',y=DATA_FILE,units='ROI', estimator=None, alpha=0.1, aspect=3, height=1.8,
                     col_order=['fast','slow']
@@ -414,7 +418,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
         fish_info = fish_info[1],
     )
 
-    res_slope = amp_avg.merge(df_peak_time_cat[['ROI', 'peak_time', 'area', 'peak_cat']], left_on=['ROI','cond_num'], right_on=['ROI','area'])
+    res_slope = amp_avg.merge(df_peak_time_cat[['ROI', 'area','peak_time_onTrialAvg']], left_on=['ROI','cond_num'], right_on=['ROI','area'])
 
 
     # %% look at raw data
@@ -425,8 +429,8 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
         exp_cond = amp_selected['area'].astype(str).map(area_cond_dict),
         fish_id = fish_info[0],
         fish_info = fish_info[1],
-
     ).rename(columns={'area':'cond_num'})
+    res_amp_long = res_amp_long.merge(df_peak_time[['ROI', 'peak_time_onTrialAvg', 'peak_time_onAvgTrial', 'area','nsti']], left_on=['ROI','cond_num','nsti'], right_on=['ROI','area','nsti'])
 
     # %%
     filename = 'dFF_analyzed.h5'

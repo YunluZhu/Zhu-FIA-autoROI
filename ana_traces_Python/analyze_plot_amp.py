@@ -5,28 +5,36 @@ import numpy as np
 import seaborn as sns
 import math
 from functions.plt_functions import plt_categorical_grid2
-from functions.doQC_getSlope import doQC_getSlope_4LD
+from functions.doQC_getSlope import doQC_getSlope, sel_exp
 import matplotlib.pyplot as plt
 
 #%%
-
-root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light"
+sel_dir = 'light' # lesion or light
+sel_qc = 'good_tuning'
 
 #%%
-amp_QC, amp_goodFit, amp_goodTuning = doQC_getSlope_4LD(root)
-
-# %%
+fig_root = f"/Users/yunluzhu/Documents/Lab2/caiman/Volumetric_code/YZ_nMLF_speed/figures"
+fig_folder_name = sel_dir
 STIMULUS_EXT = [0,5,10,20,30]
-fig_dir = f"{root}/figures"
+fig_dir = os.path.join(fig_root, fig_folder_name)
 try:
     os.makedirs(fig_dir)
 except:
     pass
 
-amp_QC = amp_QC.assign(
-    exp_cond_ordered = amp_QC['cond_num'].astype(str) + amp_QC['exp_cond']
-)
-df = amp_goodTuning
+root, cond4qc = sel_exp(sel_dir)
+
+# %%
+_, slope = doQC_getSlope(root, cond4qc)
+
+# %%
+
+if 'lesion' in sel_dir:
+    slope.loc[slope['cond_num']==2, 'exp_cond_ordered'] = '2lesion'
+
+    
+    
+df = slope.loc[slope[sel_qc]]
 
 df = df.sort_values(by=['fish_id', 'ROI','exp_cond_ordered']).reset_index(drop=True)
 # df = df.assign(
@@ -51,7 +59,7 @@ sns.relplot(
     alpha=0.1,
     height=3
 )
-plt.savefig(f"{fig_dir}/goodTuning rawLine ampXstimulus.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/rawLine ampXstimulus.pdf", format='PDF')
 
 
 sns.relplot(
@@ -63,10 +71,7 @@ sns.relplot(
     hue='exp_cond_ordered',
     height=3
 )
-plt.savefig(f"{fig_dir}/goodTuning avgLine ampXstimulus.pdf", format='PDF')
-
-
-# %%
+plt.savefig(f"{fig_dir}/avgLine ampXstimulus.pdf", format='PDF')
 
 # %%
 g = plt_categorical_grid2(
@@ -80,7 +85,7 @@ g = plt_categorical_grid2(
     aspect=0.7
 )
 g.set(ylim=[-0.4, np.percentile(df_toplt.amp, 99.9)])
-plt.savefig(f"{fig_dir}/goodTuning ampXcond.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/ampXcond.pdf", format='PDF')
 
 # %%
 g = plt_categorical_grid2(
@@ -93,22 +98,22 @@ g = plt_categorical_grid2(
     alpha=0.1,
     aspect=0.7
 )
-plt.savefig(f"{fig_dir}/goodTuning lowAngSel ampXcond.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/lowAngSel ampXcond.pdf", format='PDF')
 
 # %%
 df_toplt = df_toplt.sort_values(by=['ROI_id','cond_num','nsti']).reset_index(drop=True)
 
-dark_df = df_toplt.query("exp_cond_ordered == '1dark'")
-light_df = df_toplt.query("exp_cond_ordered == '2light'")
-df_change = dark_df.copy()
+cond1_df = df_toplt.query("cond_num == 1")
+cond2_df = df_toplt.query("cond_num == 2")
+df_change = cond1_df.copy()
 df_change = df_change.assign(
-    amp_chg = light_df['amp'].values - dark_df['amp'].values,
-    amp_chg_ratio = (light_df['amp'].values - dark_df['amp'].values)/ dark_df['amp'].values,
-    amp_chg_norm = (light_df['amp'].values - dark_df['amp'].values)/ (light_df['amp'].values + dark_df['amp'].values),
+    amp_chg = cond2_df['amp'].values - cond1_df['amp'].values,
+    amp_chg_ratio = (cond2_df['amp'].values - cond1_df['amp'].values)/ cond1_df['amp'].values,
+    amp_chg_norm = (cond2_df['amp'].values - cond1_df['amp'].values)/ (cond2_df['amp'].values + cond1_df['amp'].values),
 )
 df_change = df_change.query('nsti != 0')
 exclude_for_plotting1 = df_change.loc[df_change['amp_chg_norm'].abs() > 1].ROI_id.unique()
-exclude_for_plotting2 = dark_df.loc[(dark_df['nsti'] > 0) & (dark_df['amp'] < 0)].ROI_id.unique()
+exclude_for_plotting2 = cond1_df.loc[(cond1_df['nsti'] > 0) & (cond1_df['amp'] < 0)].ROI_id.unique()
 exclude_for_plotting = np.union1d(exclude_for_plotting1, exclude_for_plotting2)
 
 df_change = df_change.loc[~df_change['ROI_id'].isin(exclude_for_plotting)]
@@ -128,5 +133,25 @@ for y_name in ['amp_chg', 'amp_chg_ratio', 'amp_chg_norm']:
     if y_name != 'amp_chg_norm':
         g.set(ylim=[np.percentile(df_change[y_name], 0.02),np.percentile(df_change[y_name], 99)])
     plt.savefig(f"{fig_dir}/AmpChg {y_name}_{x_name}.pdf", format='PDF')
+
+# %%
+###### separate by timing ########
+sns.relplot(
+    kind='line',
+    data=df_toplt.loc[(df_toplt['cond_num'].isin([1,2]))],
+    x='stimulus',
+    y='amp',
+    row='which_exp',
+    col='peak_cat',
+    hue='exp_cond_ordered',
+    height=3,
+    # units='ROI_id',
+    # estimator=None,
+    # alpha=0.2
+)
+plt.savefig(f"{fig_dir}/amp by peak time.pdf", format='PDF')
+
+
+# %%
 
 # %%

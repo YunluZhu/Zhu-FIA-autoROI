@@ -17,7 +17,11 @@ which_slope = 'slopeAll_rawAmp'
 #%%
 
 amp_QC, amp_goodFit, amp_goodTuning = doQC_getSlope_4lesion(root)
-fig_dir = f"{root}/figures"
+STIMULUS_EXT = [0,5,10,20,30]
+fig_root = f"/Users/yunluzhu/Documents/Lab2/caiman/Volumetric_code/YZ_nMLF_speed/figures"
+fig_folder_name = "lesionSlope"
+fig_dir = os.path.join(fig_root, fig_folder_name)
+
 try:
     os.makedirs(fig_dir)
 except:
