@@ -10,7 +10,7 @@ from functions.doCategorization import get_peakTimingCat
 import matplotlib.pyplot as plt
 
 #%%
-sel_dir = 'lesion' # lesion or light
+sel_dir = 'light' # lesion or light
 sel_qc = 'good_tuning'
 
 #%%

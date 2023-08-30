@@ -13,7 +13,7 @@ from functions.getAmp_fitDualSlope import getAmp_fitDualSlope_kdeBaseCond1base
 
 
 # %%
-# root = "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion"
+
 root_list = [
     "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light",
     "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion",

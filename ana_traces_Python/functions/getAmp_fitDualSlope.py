@@ -2,7 +2,7 @@
 FINISHED
 '''
 
-    # %%
+# %%
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -245,7 +245,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     # the dFF_long_roi_corrected should contain time column
    # find the idx of time of response during a certain winder after each sti
     amp_cols = ['amp_' + str(sti) for sti in np.arange(nsti)+1]
-    time_for_amp = 4 #sec
+    time_for_amp = 5 #sec
     frame_for_amp = int(np.floor(time_for_amp * vol_rate))
 
     sel_unique_roi_level = ['area','repeat','ROI']
@@ -433,7 +433,8 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     res_amp_long = res_amp_long.merge(df_peak_time[['ROI', 'peak_time_onTrialAvg', 'peak_time_onAvgTrial', 'area','nsti']], left_on=['ROI','cond_num','nsti'], right_on=['ROI','area','nsti'])
 
     #%%
-    ######### get alternative amp on smoothed averaged traces and decays and peak time
+    ######### get alternative amp on smoothed averaged traces and decays and peak time #########
+    
     unique_res = ['ROI','area','nsti']
     df_tocal = dFF_long_roi_averaged.copy()
     df_tocal = df_tocal.sort_values(by=unique_res).reset_index(drop=True)
@@ -445,7 +446,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     ori_x = time_stamp #original timestamp
     up_sampl_fr = 2.5
     # get upsampled x (timestamps)
-    x = np.arange(time_stamp.min(),time_stamp.max()+1/up_sampl_fr,up_sampl_fr)
+    x = np.arange(time_stamp.min(),time_stamp.max()+1/up_sampl_fr,1/up_sampl_fr)
         
     interpFrame_for_amp = int(np.floor(time_for_amp * up_sampl_fr))  
     

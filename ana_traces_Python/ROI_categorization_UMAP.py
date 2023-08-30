@@ -5,8 +5,8 @@ import numpy as np
 import seaborn as sns
 import math
 from functions.plt_functions import plt_categorical_grid2
-from functions.doQC_getSlope import (doQC_getSlope, sel_exp)
-from functions.doCategorization import get_peakTime
+from functions.doQC_getSlope import doQC_getSlope_wTimedAvgAmp, sel_exp
+from functions.doCategorization import get_peakTimingCat
 import matplotlib.pyplot as plt
 
 from sklearn.decomposition import PCA
@@ -31,47 +31,32 @@ except:
 root, cond4qc = sel_exp(sel_dir)
 
 # %%
-df_peakTime, df_decay = get_peakTime(root, cond4qc)
+_, amp_smval, slope = doQC_getSlope_wTimedAvgAmp(root, cond4qc)
+amp_cat, cat_col =  get_peakTimingCat(amp_smval)
 
 # %%
-ROI_timed = df_peakTime.copy()
-amp_col = ['amp_1', 'amp_2', 'amp_3', 'amp_4', 'amp_0']
-# value_col = ['amp_1', 'amp_2', 'amp_3', 'amp_4', 'amp_0', 'peak_time']
+value_col = ['amp_smval', 'half_decay_time', 'peak_time_smval']
+ROI_wide = amp_cat.query("cond_num == 1").pivot(index='ROI_id', columns=['stimulus'], values=value_col)
+ROI_wide = ROI_wide.reset_index()
+ROI_wide.columns = ["_".join(map(str, tup)) for tup in ROI_wide.columns.to_flat_index()]
+ROI_wide.rename(columns={'ROI_id_': 'ROI_id'}, inplace=True)
+ROI_wide.drop(columns=['half_decay_time_0', 'peak_time_smval_0'], inplace=True)
+roi_list = ROI_wide['ROI_id'].values
 
-if if_normalizeAmpByCell:
-    amp_matrix = ROI_timed[amp_col].T
-    amp_norm = amp_matrix.apply(
-        lambda x: (x - x.min())/(x - x.min()).max()
-    )
-    ROI_timed.loc[:, amp_col] = amp_norm.T.values
-    ROI_timed = ROI_timed.assign(
-        normed_amp = amp_matrix.apply(
-            lambda x: x.max()-x.min()
-        ).values
-    )
-    amp_col = ['amp_1', 'amp_2', 'amp_3', 'amp_4', 'amp_0', 'peak_time', 'normed_amp']
-
-value_col = amp_col + ['halfDecT_1', 'halfDecT_2', 'halfDecT_3', 'halfDecT_4']
-
-if filter_before_pca:
-    ROI_timed = ROI_timed.loc[ROI_timed['ROI_id'].isin(df_peakTime.loc[df_peakTime[sel_qc],'ROI_id'].unique())]
-# %%
-
-reshaped = ROI_timed.loc[ROI_timed['cond_num'].isin([1])].pivot(index='ROI_id', columns='exp_cond_ordered', values=value_col).reset_index()
-reshaped.columns = ["_".join(tup) for tup in reshaped.columns.to_flat_index()]
-roi_list = reshaped['ROI_id_'].values
-df = reshaped.drop(columns=['ROI_id_'])
-
-df_std = StandardScaler().fit_transform(df)
+df = ROI_wide.drop(columns=['ROI_id'])
+df_std = StandardScaler().fit_transform(df)#.drop(index=bout_feature[bout_feature['to_bout'].isna()].index))
+# pca = PCA(n_components=10)
+# principalComponents = pca.fit_transform(df_std)
+# PCA_components = pd.DataFrame(principalComponents)
 
 
 # %% UMAP
 
 standard_embedding = umap.UMAP().fit_transform(df_std)
-umap_toplt = reshaped.assign(
+umap_toplt = ROI_wide.assign(
     umap1 = standard_embedding[:, 0],
     umap2 = standard_embedding[:, 1],
-    peak_cat = reshaped['ROI_id_'].map(dict(zip(ROI_timed['ROI_id'].values, ROI_timed['peak_cat'].values)))
+    peak_cat = ROI_wide['ROI_id'].map(dict(zip(amp_cat['ROI_id'].values, amp_cat[cat_col].values)))
 )
 # #%%
 # g = sns.scatterplot(umap_toplt, x='umap1', y='umap2', hue='peak_cat', alpha=0.5, size=0.1)
@@ -79,7 +64,7 @@ umap_toplt = reshaped.assign(
 
 # %% re umap for clustering 
 clusterable_embedding = umap.UMAP(
-    n_neighbors=15,
+    n_neighbors=30,
     min_dist=0.1,
     n_components=2,
     random_state=30,
@@ -91,58 +76,83 @@ umap_toplt = umap_toplt.assign(
     umapC2 = clusterable_embedding[:, 1],
 )
 
-g = sns.scatterplot(umap_toplt, x='umapC1', y='umapC2', hue='peak_cat', alpha=0.5, size=0.1)
+# g = sns.scatterplot(umap_toplt, x='umapC1', y='umapC2', hue='peak_cat', alpha=0.5, size=0.1)
 
-# %% cluste4ring
+# % cluste4ring
 # cluster_labels = hdbscan.HDBSCAN(
 #     min_samples=200,
 #     min_cluster_size=5,
 # ).fit_predict(clusterable_embedding)
 
 get_clusters = DBSCAN(eps=0.6, 
-                      min_samples=15
+                      min_samples=16
                       ).fit_predict(clusterable_embedding)
 
 umap_toplt = umap_toplt.assign(
     cluster = get_clusters
 )
-p = sns.relplot(kind='scatter', hue='cluster', data= umap_toplt, x='umapC1', y='umapC2', alpha=1, 
+p = sns.relplot(kind='scatter', hue='cluster', data=umap_toplt, x='umapC1', y='umapC2', alpha=0.5, linewidth=0, 
                 # s=2,
-                # palette = 'Spectral'
+                palette = 'Set2'
                 )
-
+plt.savefig(f"{fig_dir}/UMAP scatter.pdf", format='PDF')
 
 # %%
-cluster_map = dict(zip(umap_toplt['ROI_id_'], umap_toplt['cluster']))
-df_decay = df_decay.assign(
-    cluster = df_decay['ROI_id'].map(cluster_map)
+cluster_map = dict(zip(umap_toplt['ROI_id'], umap_toplt['cluster']))
+df_toplt = amp_cat.assign(
+    cluster = amp_cat['ROI_id'].map(cluster_map)
 )
-g = sns.catplot(df_decay.query("cluster != -1"), 
-                x='nsti', 
-                y='half_decay_time', 
-                col = 'cond_num', hue='cluster', 
+
+df_toplt.dropna(axis=0, inplace=True)
+df_toplt = df_toplt.loc[df_toplt['cond_num'].isin([1,2])]
+
+g = sns.catplot(df_toplt.query("cluster != -1"), 
+                x='stimulus', 
+                y='peak_time_smval', 
+                col = 'cond_num', 
+                row = 'which_exp',
+                hue='cluster', 
                 kind='point',
                 height=3)
+plt.savefig(f"{fig_dir}/UMAP cluster peakTiming.pdf", format='PDF')
 
-p = sns.catplot(df_decay.query("cluster != -1"), 
-                x='nsti', 
-                y='amp', 
-                hue = 'cond_num', col='cluster', 
+
+g = sns.catplot(df_toplt.query("cluster != -1"), 
+                x='stimulus', 
+                y='half_decay_time', 
+                col = 'cond_num', 
+                row = 'which_exp',
+                hue='cluster', 
+                kind='point',
+                height=3)
+plt.savefig(f"{fig_dir}/UMAP cluster decay.pdf", format='PDF')
+
+
+p = sns.catplot(df_toplt.query("cluster != -1"), 
+                x='stimulus', 
+                y='amp_smval', 
+                hue = 'cond_num', 
+                row = 'which_exp',
+                col='cluster', 
                 kind='point',
                 height=3,
                 sharey=True)
+plt.savefig(f"{fig_dir}/UMAP cluster amp.pdf", format='PDF')
 
-q = sns.catplot(df_decay.query("cluster != -1"), 
-                x='nsti', 
-                y='amp', 
-                col = 'cond_num', hue='cluster', 
-                kind='point',
-                height=3)
+# q = sns.catplot(df_toplt.query("cluster != -1"), 
+#                 x='stimulus', 
+#                 y='amp_smval', 
+#                 col = 'cond_num',                 
+#                 row = 'which_exp',
+#                 hue='cluster', 
+#                 kind='point',
+#                 height=3)
 # %%
-g = sns.pointplot(df_decay.groupby(['ROI_id'])[['peak_time','cluster']].mean().reset_index(),
+g = sns.pointplot(df_toplt.groupby(['ROI_id'])[['peak_time_smval','cluster']].mean().reset_index(),
                 x='cluster', 
-                y='peak_time', 
+                y='peak_time_smval', 
                 join=False
                 )
+plt.savefig(f"{fig_dir}/UMAP cluster timing.pdf", format='PDF')
 
 # %%
