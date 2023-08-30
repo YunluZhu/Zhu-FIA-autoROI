@@ -16,7 +16,7 @@
 % 
 
 
-root_dir = '/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_LT';
+root_dir = '/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light';
 
 %%
 cd(root_dir);

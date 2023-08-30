@@ -52,6 +52,22 @@ try:
 except:
     pass
 
+
+#%%
+amp_col = ['amp_smval_0',	'amp_smval_5',	'amp_smval_10',	'amp_smval_20',	'amp_smval_30']
+amp_matrix = ROI_wide[amp_col].T
+amp_norm = amp_matrix.apply(
+    lambda x: (x - x.min())/(x - x.min()).max()
+)
+ROI_wide.loc[:, amp_col] = amp_norm.T.values
+ROI_wide = ROI_wide.assign(
+    normed_amp = amp_matrix.apply(
+        lambda x: x.max()-x.min()
+    ).values
+)
+
+#%%
+
 roi_list = ROI_wide['ROI_id'].values
 
 df = ROI_wide.drop(columns=['ROI_id'])
@@ -78,7 +94,7 @@ umap_toplt = ROI_wide.assign(
 # %% re umap for clustering 
 clusterable_embedding = umap.UMAP(
     n_neighbors=30,
-    min_dist=0.2,
+    min_dist=0.15,
     n_components=2,
     random_state=30,
 ).fit_transform(df_std)
@@ -98,7 +114,7 @@ umap_toplt = umap_toplt.assign(
 # ).fit_predict(clusterable_embedding)
 
 get_clusters = DBSCAN(eps=0.5, 
-                      min_samples=13
+                      min_samples=15
                       ).fit_predict(clusterable_embedding)
 
 umap_toplt = umap_toplt.assign(
@@ -108,13 +124,13 @@ p = sns.relplot(kind='scatter', hue='cluster', data=umap_toplt, x='umapC1', y='u
                 palette = 'Set2',
                 height=4,
                 )
-plt.savefig(f"{fig_dir}/UMAP scatter.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/UMAP_onNormAmp scatter.pdf", format='PDF')
 
 p = sns.relplot(kind='scatter', hue='which_exp', data=umap_toplt, x='umapC1', y='umapC2', alpha=0.5, linewidth=0, 
                 palette = 'Set2',
                 height=4,
                 )
-plt.savefig(f"{fig_dir}/UMAP scatter_byExp.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/UMAP_onNormAmp scatter_byExp.pdf", format='PDF')
 # %%
 cluster_map = dict(zip(umap_toplt['ROI_id'], umap_toplt['cluster']))
 df_toplt = amp_cat.assign(
@@ -155,7 +171,7 @@ p = sns.catplot(df_toplt.query("cluster != -1"),
                 kind='point',
                 height=3,
                 sharey=True)
-plt.savefig(f"{fig_dir}/UMAP cluster amp.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/UMAP_onNormAmp cluster amp.pdf", format='PDF')
 
 # q = sns.catplot(df_toplt.query("cluster != -1"), 
 #                 x='stimulus', 
@@ -171,6 +187,6 @@ g = sns.pointplot(df_toplt.groupby(['ROI_id'])[['peak_time_smval','cluster']].me
                 y='peak_time_smval', 
                 join=False
                 )
-plt.savefig(f"{fig_dir}/UMAP cluster timing.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/UMAP_onNormAmp cluster timing.pdf", format='PDF')
 
 # %%

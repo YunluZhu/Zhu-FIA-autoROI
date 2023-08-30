@@ -458,7 +458,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
         this_amp_smval = smval[0:interpFrame_for_amp].max()
         this_peakTime_smval_idx = smval[0:interpFrame_for_amp].argmax()
         half_peak = this_amp_smval/2
-        this_left = np.argmax(x[this_peakTime_smval_idx:]<half_peak) + this_peakTime_smval_idx
+        this_left = np.argmax(smval[this_peakTime_smval_idx:]<half_peak) + this_peakTime_smval_idx
         this_res = pd.DataFrame(data={
             'half_decay_time': x[this_left],
             'amp_smval': this_amp_smval,

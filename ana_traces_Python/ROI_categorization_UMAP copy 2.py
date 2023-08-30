@@ -18,7 +18,7 @@ sel_dir = 'light' # lesion or light
 sel_qc = 'good_endRes'
 
 #%%
-fig_root = f"/Users/yunluzhu/Documents/Lab2/caiman/Volumetric_code/YZ_nMLF_speed/figures/UMAP"
+fig_root = f"/Users/yunluzhu/Documents/Lab2/caiman/Volumetric_code/YZ_nMLF_speed/figures"
 fig_folder_name = sel_dir
 STIMULUS_EXT = [0,5,10,20,30]
 fig_dir = os.path.join(fig_root, fig_folder_name)
@@ -35,8 +35,6 @@ amp_cat, cat_col =  get_peakTimingCat(amp_smval)
 
 # %%
 amp_cat = amp_cat.loc[amp_cat[sel_qc]]
-# amp_cat = amp_cat.loc[amp_cat['which_exp']=='nMLF']
-
 value_col = ['amp_smval', 
             #  'half_decay_time', 
              'peak_time_smval']
@@ -61,15 +59,11 @@ df_std = StandardScaler().fit_transform(df)#.drop(index=bout_feature[bout_featur
 
 # %% UMAP
 
-exp_map = dict(zip(amp_cat['ROI_id'], amp_cat['which_exp']))
-timing_map = dict(zip(amp_cat['ROI_id'].values, amp_cat[cat_col].values))
-
 standard_embedding = umap.UMAP().fit_transform(df_std)
 umap_toplt = ROI_wide.assign(
     umap1 = standard_embedding[:, 0],
     umap2 = standard_embedding[:, 1],
-    peak_cat = ROI_wide['ROI_id'].map(timing_map),
-    which_exp = ROI_wide['ROI_id'].map(exp_map)
+    peak_cat = ROI_wide['ROI_id'].map(dict(zip(amp_cat['ROI_id'].values, amp_cat[cat_col].values)))
 )
 # #%%
 # g = sns.scatterplot(umap_toplt, x='umap1', y='umap2', hue='peak_cat', alpha=0.5, size=0.1)
@@ -110,11 +104,7 @@ p = sns.relplot(kind='scatter', hue='cluster', data=umap_toplt, x='umapC1', y='u
                 )
 plt.savefig(f"{fig_dir}/UMAP scatter.pdf", format='PDF')
 
-p = sns.relplot(kind='scatter', hue='which_exp', data=umap_toplt, x='umapC1', y='umapC2', alpha=0.5, linewidth=0, 
-                palette = 'Set2',
-                height=4,
-                )
-plt.savefig(f"{fig_dir}/UMAP scatter_byExp.pdf", format='PDF')
+
 # %%
 cluster_map = dict(zip(umap_toplt['ROI_id'], umap_toplt['cluster']))
 df_toplt = amp_cat.assign(

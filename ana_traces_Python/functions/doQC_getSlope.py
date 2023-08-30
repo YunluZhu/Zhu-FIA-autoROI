@@ -297,9 +297,14 @@ def doQC_getSlope_wTimedAvgAmp(root:str, sel_cond_4qc:list):
     #%% use amp_avg dataframe which contains peak calculated on smoothed median traces and timing for peak and half decay
     amp_smval = amp_avg.assign(
         exp_cond_ordered = amp_avg['cond_num'].astype(str) + amp_avg['exp_cond'],
+        good_awakened = False,
+        good_endRes = False,
         good_fit = False,
         good_tuning = False,
+        
     )
+    amp_smval.loc[amp_smval['ROI_id'].isin(ROI_passAwaken),'good_awakened'] = True
+    amp_smval.loc[amp_smval['ROI_id'].isin(ROI_afterBase),'good_endRes'] = True
     amp_smval.loc[amp_smval['ROI_id'].isin(ROI_goodFit),'good_fit'] = True
     amp_smval.loc[amp_smval['ROI_id'].isin(ROI_goodTuning),'good_tuning'] = True
     

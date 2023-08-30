@@ -26,7 +26,7 @@ function [dFoF_KSDensity, dF_KSDensity, mu] = extract_dFF_ksDensity_advanced(res
       xx = linspace(xi(ii_1),xi(ii_2),201); % x100 interpolation
       [f, xi]=ksdensity(traceCell,xx);
       [~, ii] = max(f);
-      mu(thisROI) = xi(ii);
+      mu(thisROI) = mean(xi(1:ii));
 
     end   
     FminusMu = bsxfun(@minus,response, mu);

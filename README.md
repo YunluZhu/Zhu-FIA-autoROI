@@ -42,3 +42,6 @@
 7. ROI QC and dFF analysis
 	+ First, very similar ROIs that likely come from the same neuron in different slices and show a correlation of response > 0.85 are removed
 	+ Plot time series data. User can define which areas to plot.
+	
+## Analyze and Visualize Results Using Python
+Refer to the README in folder `ana_traces_Python`
