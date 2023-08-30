@@ -252,7 +252,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     idx_for_amp = dFF_long_roi_corrected.groupby(sel_unique_roi_level + ['nsti']).head(frame_for_amp).index
     rows_for_amp = dFF_long_roi_corrected.loc[idx_for_amp]
     amp_long = rows_for_amp.groupby(sel_unique_roi_level + ['nsti'])[DATA_FILE].max().reset_index()
-
+    
     # %%
     # QC
 
@@ -261,7 +261,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     # BASE_THRESHOLD = 0.8  # std/mean
     LAST3s_THRESHOLD = 1 # dFF
 
-    # 1. find ROIs with mean peak amp across all stimulus greater than threshold 
+    # 1. find ROIs with mean peak amp greater than threshold 
     amp_long_ampfilter = amp_long.loc[amp_long['area'].isin([1,2])].groupby(['area','ROI', 'nsti'])[DATA_FILE].median().reset_index() # mdian across repeats for each sti of each ROI
     amp_long_ampfilter_max = amp_long_ampfilter.groupby(['area','ROI'])[DATA_FILE].max().reset_index() # max of the amp to all sti should pass threshold
     ROI_pass1 = amp_long_ampfilter_max.loc[amp_long_ampfilter_max[DATA_FILE] > dFF_THRESHOLD].ROI.unique()
@@ -320,7 +320,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
         fish_id = fish_info[0],
         fish_info = fish_info[1],
     )
-    # dFF_long_roi_averaged = dFF_long_roi_averaged.sort_values(by=['fish_id','area','ROI','nsti','frames'])
+
     # %%
     # change of response to individual stimuli
 
@@ -432,7 +432,64 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     ).rename(columns={'area':'cond_num'})
     res_amp_long = res_amp_long.merge(df_peak_time[['ROI', 'peak_time_onTrialAvg', 'peak_time_onAvgTrial', 'area','nsti']], left_on=['ROI','cond_num','nsti'], right_on=['ROI','area','nsti'])
 
-    # %%
+    #%%
+    ######### get alternative amp on smoothed averaged traces and decays and peak time
+    unique_res = ['ROI','area','nsti']
+    df_tocal = dFF_long_roi_averaged.copy()
+    df_tocal = df_tocal.sort_values(by=unique_res).reset_index(drop=True)
+    df_tocal = df_tocal.assign(
+        smval = df_tocal.groupby(unique_res)[DATA_FILE].transform(
+        lambda x: savgol_filter(x, 13, 3)
+        )
+    )
+    ori_x = time_stamp #original timestamp
+    up_sampl_fr = 2.5
+    # get upsampled x (timestamps)
+    x = np.arange(time_stamp.min(),time_stamp.max()+1/up_sampl_fr,up_sampl_fr)
+        
+    interpFrame_for_amp = int(np.floor(time_for_amp * up_sampl_fr))  
+    
+    res_on_smval = pd.DataFrame()
+    for (ROI_id,area,nsti), group in df_tocal.groupby(unique_res):
+        ori_val = group['smval']
+        yinterp = np.interp(x, ori_x, ori_val)
+        smval = savgol_filter(yinterp, 5, 3)
+        this_amp_smval = smval[0:interpFrame_for_amp].max()
+        this_peakTime_smval_idx = smval[0:interpFrame_for_amp].argmax()
+        half_peak = this_amp_smval/2
+        this_left = np.argmax(x[this_peakTime_smval_idx:]<half_peak) + this_peakTime_smval_idx
+        this_res = pd.DataFrame(data={
+            'half_decay_time': x[this_left],
+            'amp_smval': this_amp_smval,
+            'peak_time_smval': x[this_peakTime_smval_idx],
+            'ROI': ROI_id,
+            'cond_num': area,
+            'nsti': nsti,
+        }, index=[0])
+        res_on_smval = pd.concat([res_on_smval, this_res], ignore_index=True)
+
+    # construct a new averaged long amplitude datafram
+    amp_avg_long = amp_selected.groupby(['ROI','area','nsti'])[DATA_FILE].median().reset_index()
+    amp_avg_long.columns = ['ROI', 'cond_num', 'nsti', 'amp_raw']
+    # add amp on smoothed traces
+    amp_avg_long = amp_avg_long.merge(res_on_smval, on=['ROI','cond_num','nsti'])
+    # add last 3 sec value
+    last3sec_avg_avg = last3sec_avg.groupby(['ROI', 'area'])['last3sec'].median().reset_index()
+    last3sec_avg_avg.columns = ['ROI', 'cond_num', 'amp_raw']
+    last3sec_avg_avg = last3sec_avg_avg.assign(
+        amp_smval = last3sec_avg_avg['amp_raw'],
+        nsti = 0
+    )
+    res_amp_avg_long = pd.concat([amp_avg_long, last3sec_avg_avg], ignore_index=True)
+    res_amp_avg_long = res_amp_avg_long.sort_values(by=['ROI','cond_num', 'nsti'])
+    sti_map[0] = 0
+    res_amp_avg_long = res_amp_avg_long.assign(
+        stimulus = res_amp_avg_long['nsti'].map(sti_map),
+        exp_cond = res_amp_avg_long['cond_num'].astype(str).map(area_cond_dict),
+        fish_id = fish_info[0],
+        fish_info = fish_info[1],
+    )
+    #%%
     filename = 'dFF_analyzed.h5'
     
     if if_shuffle:
@@ -446,5 +503,6 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     res_traces_avg.to_hdf(f'{root}/{filename}', key='traces', format='table')
     ROI_metadata.to_hdf(f'{root}/{filename}', key='roi_metadata', format='table')
     res_slope.to_hdf(f'{root}/{filename}', key='slope', format='table')
+    res_amp_avg_long.to_hdf(f'{root}/{filename}', key='amp_avg', format='table')
 
-    return res_traces_avg, res_amp_long, res_slope, ROI_metadata, STIMULUS
+    return res_traces_avg, res_amp_long, res_amp_avg_long, res_slope, ROI_metadata, STIMULUS

@@ -9,7 +9,7 @@ from functions.doQC_getSlope import doQC_getSlope, sel_exp
 import matplotlib.pyplot as plt
 
 #%%
-sel_dir = 'light' # lesion or light
+sel_dir = 'lesion' # lesion or light
 sel_qc = 'good_tuning'
 
 #%%
@@ -26,14 +26,26 @@ root, cond4qc = sel_exp(sel_dir)
 
 # %%
 _, slope = doQC_getSlope(root, cond4qc)
-
+slope = slope.reset_index(drop=True)
 # %%
 
 if 'lesion' in sel_dir:
     slope.loc[slope['cond_num']==2, 'exp_cond_ordered'] = '2lesion'
+    lesion_df = slope.loc[slope['cond_num']==2].copy()
+    values_to_norm = slope.query("cond_num == 2")['last3sec'].values - slope.query("cond_num == 1")['last3sec'].values
+    
+    for amp in ['amp_1', 'amp_2', 'amp_3', 'amp_4','last3sec']:
+        normed_values = (lesion_df[amp].values - values_to_norm)/slope.query("cond_num == 2")['last3sec'].values
+        lesion_df.loc[:,amp] = normed_values
+    lesion_df = lesion_df.assign(
+        cond_num = 2.5,
+        exp_cond = 'postProxBi_adj',
+        area = 2.5,
+        exp_cond_ordered = '3lesion_adj'
+    )
+    slope = pd.concat([slope.query("exp_cond != 'postProxBi_adj'"), lesion_df], ignore_index=True)
 
-    
-    
+# %%
 df = slope.loc[slope[sel_qc]]
 
 df = df.sort_values(by=['fish_id', 'ROI','exp_cond_ordered']).reset_index(drop=True)
@@ -46,10 +58,11 @@ sti_map = dict([(ii, sti) for ii, sti  in enumerate(STIMULUS_EXT)])
 df_toplt = df_toplt.assign(
     stimulus = df_toplt['nsti'].map(sti_map),
 )
+df_toplt = df_toplt.loc[df_toplt['amp'].abs() < 20]
 # %% plot
 sns.relplot(
     kind='line',
-    data=df_toplt.loc[df_toplt['cond_num'].isin([1,2])],
+    data=df_toplt.loc[df_toplt['cond_num']<3],
     x='stimulus',
     y='amp',
     units='ROI_id',
@@ -64,7 +77,7 @@ plt.savefig(f"{fig_dir}/rawLine ampXstimulus.pdf", format='PDF')
 
 sns.relplot(
     kind='line',
-    data=df_toplt.loc[df_toplt['cond_num'].isin([1,2])],
+    data=df_toplt.loc[df_toplt['cond_num']<3],
     x='stimulus',
     y='amp',
     row='which_exp',
@@ -75,7 +88,7 @@ plt.savefig(f"{fig_dir}/avgLine ampXstimulus.pdf", format='PDF')
 
 # %%
 g = plt_categorical_grid2(
-    data=df_toplt.loc[df_toplt['cond_num'].isin([1,2])],
+    data=df_toplt.loc[df_toplt['cond_num']<3],
     gridcol='stimulus',
     y_name='amp',
     gridrow='which_exp',

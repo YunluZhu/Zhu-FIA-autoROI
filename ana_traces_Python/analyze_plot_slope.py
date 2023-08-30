@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 
 
 #%%
-sel_dir = 'light' # lesion or light
+sel_dir = 'lesion' # lesion or light
 
-#%%
+#%% 
 
 if 'lesion' in sel_dir:
     which_slope = 'slopeAll_rawAmp'

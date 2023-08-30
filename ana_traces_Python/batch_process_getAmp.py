@@ -33,6 +33,7 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
     # %%
     traces_avg = pd.DataFrame()
     amp_long = pd.DataFrame() 
+    amp_avg = pd.DataFrame() 
     slope = pd.DataFrame()
     ROI_metadata = pd.DataFrame()
     
@@ -40,9 +41,10 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
     if if_reanalyze == 'y':
         for fish_idx, fishfolder in enumerate(folder_paths):
             if (os.path.isdir(fishfolder)) and ('fish' in fishfolder):
-                this_traces_avg, this_amp_long, this_slope, this_ROI_metadata, STIMULUS = getAmp_fitDualSlope_kdeBaseCond1base(fishfolder)
+                this_traces_avg, this_amp_long, this_amp_avg, this_slope, this_ROI_metadata, STIMULUS = getAmp_fitDualSlope_kdeBaseCond1base(fishfolder)
                 traces_avg = pd.concat([traces_avg, this_traces_avg])
                 amp_long = pd.concat([amp_long, this_amp_long])
+                amp_avg = pd.concat([amp_avg, this_amp_avg])
                 slope = pd.concat([slope, this_slope])
                 ROI_metadata = pd.concat([ROI_metadata, this_ROI_metadata])
     else:
@@ -50,6 +52,7 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
             if (os.path.isdir(fishfolder)) and ('fish' in fishfolder):
                 this_traces_avg = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='traces')
                 this_amp_long = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='amp')
+                amp_avg = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='amp_avg')
                 this_slope = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='slope')
                 this_ROI_metadata = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='roi_metadata')
                 traces_avg = pd.concat([traces_avg, this_traces_avg])
@@ -91,11 +94,18 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
     )
     amp_long.loc[amp_long['fish_info'].str.contains(exp2id_char), 'which_exp'] = exp2_name
 
+    amp_avg = amp_avg.assign(
+        ROI_id = amp_avg['fish_id'] + '_' + amp_avg['ROI'].astype(str),
+        which_exp = exp1_name,
+    )
+    amp_avg.loc[amp_avg['fish_info'].str.contains(exp2id_char), 'which_exp'] = exp2_name
+
     # %%
     traces_avg.to_hdf(f'{root}/res_concatenated.h5', key='long_data', mode='w', format='table')
     ROI_metadata.to_hdf(f'{root}/res_concatenated.h5', key='roi_metadata', format='table')
     slope.to_hdf(f'{root}/res_concatenated.h5', key='slope', format='table')
     amp_long.to_hdf(f'{root}/res_concatenated.h5', key='amp', format='table')
+    amp_avg.to_hdf(f'{root}/res_concatenated.h5', key='amp_avg', format='table')
     
 #%%
 if __name__ == "__main__":
