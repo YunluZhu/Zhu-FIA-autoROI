@@ -82,7 +82,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
         # SHUFFLE area repeats together
         dFF_1 = dFF.loc[dFF['area'].isin(shuffle_cond)]
         dFF_2 = dFF.loc[~dFF['area'].isin(shuffle_cond)]
-        groups = [dFF_1 for _, dFF_1 in dFF_1.groupby(['area','repeat','frames'])]
+        groups = [dFF_1 for _, dFF_1 in dFF_1.groupby(['area','repeat'])]
         random.shuffle(groups)
         dFF1_sh = pd.concat(groups).reset_index(drop=True)
         dFF_1 = dFF_1.assign(
@@ -238,8 +238,6 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
     print(f'- {all_combined} ROIs combined')
 
 
-
-
     # %%
     # Extract peaks and make a new dataframe of peaks
     # the dFF_long_roi_corrected should contain time column
@@ -323,16 +321,17 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
 
     # %%
     # change of response to individual stimuli
+    if ~if_shuffle:
 
-    ############### % check raw traces ##############
-    df_toplt = dFF_long_roi_averaged.merge(df_peak_time_cat_area1[['ROI','fish_id','peak_cat','peak_time_onTrialAvg']], on=['fish_id', 'ROI'])
-    df_toplt.peak_cat = df_toplt.peak_cat.astype(str)
-    g = sns.relplot(row='exp_cond', col='peak_cat', kind='line', data=df_toplt, x='frames',y=DATA_FILE,units='ROI', estimator=None, alpha=0.1, aspect=3, height=1.8,
-                    col_order=['fast','slow']
-                    )
-    g.set(ylim=[-1,12])
-    plt.savefig(f"{fig_dir}/traces.pdf", format='PDF')
-    plt.close()
+        ############### % check raw traces ##############
+        df_toplt = dFF_long_roi_averaged.merge(df_peak_time_cat_area1[['ROI','fish_id','peak_cat','peak_time_onTrialAvg']], on=['fish_id', 'ROI'])
+        df_toplt.peak_cat = df_toplt.peak_cat.astype(str)
+        g = sns.relplot(row='exp_cond', col='peak_cat', kind='line', data=df_toplt, x='frames',y=DATA_FILE,units='ROI', estimator=None, alpha=0.1, aspect=3, height=1.8,
+                        col_order=['fast','slow']
+                        )
+        g.set(ylim=[-1,12])
+        plt.savefig(f"{fig_dir}/traces.pdf", format='PDF')
+        plt.close()
 
 
     # %% 
@@ -469,7 +468,7 @@ def getAmp_fitDualSlope_kdeBaseCond1base(root, STIMULUS=[5, 10, 20, 30], if_shuf
         }, index=[0])
         res_on_smval = pd.concat([res_on_smval, this_res], ignore_index=True)
 
-    # construct a new averaged long amplitude datafram
+    # construct a new averaged long amplitude dataframe
     amp_avg_long = amp_selected.groupby(['ROI','area','nsti'])[DATA_FILE].median().reset_index()
     amp_avg_long.columns = ['ROI', 'cond_num', 'nsti', 'amp_raw']
     # add amp on smoothed traces

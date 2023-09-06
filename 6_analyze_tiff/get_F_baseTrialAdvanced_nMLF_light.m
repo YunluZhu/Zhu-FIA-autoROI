@@ -4,7 +4,7 @@
 % hardcoded for recognizing dark/light in the area folder name
 % 
 % returns 2 sets of traces:
-%% 
+%%  
 % # dFF estimated by KS density
 % # dFF calculated using the mean of baseline area activity
 %% 

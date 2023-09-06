@@ -14,11 +14,11 @@ from sklearn.preprocessing import StandardScaler
 import umap
 from sklearn.cluster import DBSCAN
 #%%
-sel_dir = 'light' # lesion or light
+sel_dir = 'lesion' # lesion or light
 sel_qc = 'good_endRes'
 
 #%%
-fig_root = f"/Users/yunluzhu/Documents/Lab2/caiman/Volumetric_code/YZ_nMLF_speed/figures/UMAP_Normed"
+fig_root = f"/Users/yunluzhu/Documents/Lab2/caiman/Volumetric_code/YZ_nMLF_speed/figures/UMAP_lesion"
 fig_folder_name = sel_dir
 STIMULUS_EXT = [0,5,10,20,30]
 fig_dir = os.path.join(fig_root, fig_folder_name)
@@ -38,8 +38,9 @@ amp_cat = amp_cat.loc[amp_cat[sel_qc]]
 # amp_cat = amp_cat.loc[amp_cat['which_exp']=='nMLF']
 
 value_col = ['amp_smval', 
-            #  'half_decay_time', 
-             'peak_time_smval']
+            #   'half_decay_time', 
+             'peak_time_smval'
+             ]
 ROI_wide = amp_cat.query("cond_num == 1").pivot(index='ROI_id', columns=['stimulus'], values=value_col)
 ROI_wide = ROI_wide.reset_index()
 ROI_wide.columns = ["_".join(map(str, tup)) for tup in ROI_wide.columns.to_flat_index()]
@@ -47,27 +48,13 @@ ROI_wide.rename(columns={'ROI_id_': 'ROI_id'}, inplace=True)
 
 ROI_wide.drop(columns=['peak_time_smval_0'], inplace=True)
 ROI_wide.drop(columns=['amp_smval_0'], inplace=True)
+
+
 try:
     ROI_wide.drop(columns=['half_decay_time_0'], inplace=True)
-    ROI_wide.drop(columns=['half_decay_time_1'], inplace=True)
+    ROI_wide.drop(columns=['half_decay_time_5'], inplace=True)
 except:
     pass
-
-
-#%%
-amp_col = ['amp_smval_0',	'amp_smval_5',	'amp_smval_10',	'amp_smval_20',	'amp_smval_30']
-amp_matrix = ROI_wide[amp_col].T
-amp_norm = amp_matrix.apply(
-    lambda x: (x - x.min())/(x - x.min()).max()
-)
-ROI_wide.loc[:, amp_col] = amp_norm.T.values
-ROI_wide = ROI_wide.assign(
-    normed_amp = amp_matrix.apply(
-        lambda x: x.max()-x.min()
-    ).values
-)
-
-#%%
 
 roi_list = ROI_wide['ROI_id'].values
 
@@ -94,10 +81,10 @@ umap_toplt = ROI_wide.assign(
 
 # %% re umap for clustering 
 clusterable_embedding = umap.UMAP(
-    n_neighbors=30,
-    min_dist=0.15,
+    n_neighbors=20,
+    min_dist=0.1,
     n_components=2,
-    random_state=30,
+    random_state=15,
 ).fit_transform(df_std)
 
 
@@ -115,7 +102,7 @@ umap_toplt = umap_toplt.assign(
 # ).fit_predict(clusterable_embedding)
 
 get_clusters = DBSCAN(eps=0.5, 
-                      min_samples=15
+                      min_samples=12
                       ).fit_predict(clusterable_embedding)
 
 umap_toplt = umap_toplt.assign(
@@ -125,19 +112,21 @@ p = sns.relplot(kind='scatter', hue='cluster', data=umap_toplt, x='umapC1', y='u
                 palette = 'Set2',
                 height=4,
                 )
-plt.savefig(f"{fig_dir}/UMAP_onNormAmp scatter.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/UMAP scatter.pdf", format='PDF')
 
 p = sns.relplot(kind='scatter', hue='which_exp', data=umap_toplt, x='umapC1', y='umapC2', alpha=0.5, linewidth=0, 
                 palette = 'Set2',
                 height=4,
                 )
-plt.savefig(f"{fig_dir}/UMAP_onNormAmp scatter_byExp.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/UMAP scatter_byExp.pdf", format='PDF')
+
+
 # %%
 cluster_map = dict(zip(umap_toplt['ROI_id'], umap_toplt['cluster']))
 df_toplt = amp_cat.assign(
     cluster = amp_cat['ROI_id'].map(cluster_map)
 )
-df_toplt = df_toplt#.loc[df_toplt['good_fit']]
+# df_toplt = df_toplt.loc[df_toplt['good_endRes']]
 # df_toplt.dropna(axis=0, inplace=True)
 df_toplt = df_toplt.loc[df_toplt['cond_num'].isin([1,2])]
 
@@ -172,7 +161,7 @@ p = sns.catplot(df_toplt.query("cluster != -1"),
                 kind='point',
                 height=3,
                 sharey=True)
-plt.savefig(f"{fig_dir}/UMAP_onNormAmp cluster amp.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/UMAP cluster amp.pdf", format='PDF')
 
 # q = sns.catplot(df_toplt.query("cluster != -1"), 
 #                 x='stimulus', 
@@ -188,6 +177,6 @@ g = sns.pointplot(df_toplt.groupby(['ROI_id'])[['peak_time_smval','cluster']].me
                 y='peak_time_smval', 
                 join=False
                 )
-plt.savefig(f"{fig_dir}/UMAP_onNormAmp cluster timing.pdf", format='PDF')
+plt.savefig(f"{fig_dir}/UMAP cluster timing.pdf", format='PDF')
 
 # %%

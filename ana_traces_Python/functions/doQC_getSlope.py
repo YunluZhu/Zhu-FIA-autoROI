@@ -3,9 +3,7 @@
 import os,glob
 import pandas as pd
 import numpy as np 
-import seaborn as sns
-import math
-from functions.plt_functions import plt_categorical_grid2
+
 
 #%%
 
@@ -13,12 +11,15 @@ def sel_exp(sel_exp:str):
     exp_dict = {
         #'name of exp': ("dir", [condition number for quality control])
         'light': ("/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light", [1,2]),
-        'lesion': ("/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion", [1])
+        'lesion': ("/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion", [1]),
+        'local': ("/Users/yunluzhu/Documents/Lab2/Manuscripts/2023 nMLF Speed Navigation/data/data_copy_localUse/analyzed_light", [1,2])
     }
     path, cond_4qc = exp_dict[sel_exp]
     return path, cond_4qc
 
+#%%
 def doQC_getSlope(root:str, sel_cond_4qc:list):
+    #%%
     amp_long = pd.read_hdf(f'{root}/res_concatenated.h5', key='amp')
     traces_avg = pd.read_hdf(f'{root}/res_concatenated.h5', key='long_data')
     ROI_metadata = pd.read_hdf(f'{root}/res_concatenated.h5', key='roi_metadata')
@@ -38,10 +39,15 @@ def doQC_getSlope(root:str, sel_cond_4qc:list):
 
     # 1. how does peak amp change across repeats? -------------------
     # exclude ROIs that increase responses as the trial goes on
-    qc_repeatDiff = amp_long.groupby(['cond_num','ROI_id','nsti']).apply(
-        lambda g: g['dFF'].diff().mean()
-    ).reset_index()
-    qc_repeatDiff.columns = ['cond_num', 'ROI_id', 'nsti', 'amp_trial_diff']
+    grp = amp_long.groupby(['cond_num','fish_id','ROI_id','nsti'])
+    dFF_diff = grp['dFF'].transform(
+        lambda g: g.diff()
+    )
+    qc_repeatDiff_all = amp_long.assign(
+        amp_trial_diff = dFF_diff
+    )
+    qc_repeatDiff = qc_repeatDiff_all.groupby(['cond_num','fish_id','ROI_id','repeat'])['amp_trial_diff'].mean().reset_index()
+    qc_repeatDiff.dropna(inplace=True)
     qc_repeatDiff = qc_repeatDiff.loc[qc_repeatDiff['cond_num'].isin(sel_cond_4qc)]
     qc_repeatIncrease = qc_repeatDiff.groupby(['ROI_id','cond_num']).apply(
         lambda x: (x['amp_trial_diff'] > 0).sum() == len(x)
@@ -158,7 +164,7 @@ def doQC_getSlope(root:str, sel_cond_4qc:list):
 
 #%%
 def doQC_getSlope_wTimedAvgAmp(root:str, sel_cond_4qc:list):
-    
+    #%%
     amp_long = pd.read_hdf(f'{root}/res_concatenated.h5', key='amp')
     amp_avg = pd.read_hdf(f'{root}/res_concatenated.h5', key='amp_avg')
     ROI_metadata = pd.read_hdf(f'{root}/res_concatenated.h5', key='roi_metadata')
@@ -178,10 +184,15 @@ def doQC_getSlope_wTimedAvgAmp(root:str, sel_cond_4qc:list):
 
     # 1. how does peak amp change across repeats? -------------------
     # exclude ROIs that increase responses as the trial goes on
-    qc_repeatDiff = amp_long.groupby(['cond_num','ROI_id','nsti']).apply(
-        lambda g: g['dFF'].diff().mean()
-    ).reset_index()
-    qc_repeatDiff.columns = ['cond_num', 'ROI_id', 'nsti', 'amp_trial_diff']
+    grp = amp_long.groupby(['cond_num','fish_id','ROI_id','nsti'])
+    dFF_diff = grp['dFF'].transform(
+        lambda g: g.diff()
+    )
+    qc_repeatDiff_all = amp_long.assign(
+        amp_trial_diff = dFF_diff
+    )
+    qc_repeatDiff = qc_repeatDiff_all.groupby(['cond_num','fish_id','ROI_id','repeat'])['amp_trial_diff'].mean().reset_index()
+    qc_repeatDiff.dropna(inplace=True)
     qc_repeatDiff = qc_repeatDiff.loc[qc_repeatDiff['cond_num'].isin(sel_cond_4qc)]
     qc_repeatIncrease = qc_repeatDiff.groupby(['ROI_id','cond_num']).apply(
         lambda x: (x['amp_trial_diff'] > 0).sum() == len(x)

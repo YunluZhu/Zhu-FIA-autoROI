@@ -78,9 +78,9 @@ umap_toplt = ROI_wide.assign(
 # %% re umap for clustering 
 clusterable_embedding = umap.UMAP(
     n_neighbors=30,
-    min_dist=0.2,
+    min_dist=0.1,
     n_components=2,
-    random_state=30,
+    random_state=40,
 ).fit_transform(df_std)
 
 
@@ -98,7 +98,7 @@ umap_toplt = umap_toplt.assign(
 # ).fit_predict(clusterable_embedding)
 
 get_clusters = DBSCAN(eps=0.5, 
-                      min_samples=13
+                      min_samples=12
                       ).fit_predict(clusterable_embedding)
 
 umap_toplt = umap_toplt.assign(
@@ -115,6 +115,9 @@ p = sns.relplot(kind='scatter', hue='which_exp', data=umap_toplt, x='umapC1', y=
                 height=4,
                 )
 plt.savefig(f"{fig_dir}/UMAP scatter_byExp.pdf", format='PDF')
+# %%
+
+
 # %%
 cluster_map = dict(zip(umap_toplt['ROI_id'], umap_toplt['cluster']))
 df_toplt = amp_cat.assign(
