@@ -15,10 +15,11 @@ from functions.getAmp_fitDualSlope import getAmp_fitDualSlope_kdeBaseCond1base
 # %%
 
 root_list = [
-    "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light",
-    # "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion",
+    # "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_light",
+    "/Volumes/LabDataPro/2P nMLF speed/Calcium imaging/2analyze_lesion",
+    
 ]
-if_reanalyze = 'y'
+if_reanalyze = 'n'
 
 # %%
 
@@ -50,11 +51,16 @@ def batch_getAmp_fitDualSlope_wBaseTrials(root, if_reanalyze):
     else:
         for fish_idx, fishfolder in enumerate(folder_paths):
             if (os.path.isdir(fishfolder)) and ('fish' in fishfolder):
-                this_traces_avg = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='traces')
-                this_amp_long = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='amp')
-                amp_avg = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='amp_avg')
-                this_slope = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='slope')
-                this_ROI_metadata = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='roi_metadata')
+                try:
+                    this_traces_avg = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='traces')
+                    this_amp_long = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='amp')
+                    this_amp_avg = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='amp_avg')
+                    this_slope = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='slope')
+                    this_ROI_metadata = pd.read_hdf(f'{fishfolder}/dFF_analyzed.h5', key='roi_metadata')
+                except:
+                    print(f"Reanalyze {fishfolder}")
+                    this_traces_avg, this_amp_long, this_amp_avg, this_slope, this_ROI_metadata, STIMULUS = getAmp_fitDualSlope_kdeBaseCond1base(fishfolder)
+                amp_avg = pd.concat([amp_avg, this_amp_avg])
                 traces_avg = pd.concat([traces_avg, this_traces_avg])
                 amp_long = pd.concat([amp_long, this_amp_long])
                 slope = pd.concat([slope, this_slope])

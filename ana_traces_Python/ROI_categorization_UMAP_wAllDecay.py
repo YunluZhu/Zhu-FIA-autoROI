@@ -38,7 +38,7 @@ amp_cat = amp_cat.loc[amp_cat[sel_qc]]
 # amp_cat = amp_cat.loc[amp_cat['which_exp']=='nMLF']
 
 value_col = ['amp_smval', 
-            #   'half_decay_time', 
+              'half_decay_time', 
              'peak_time_smval'
              ]
 ROI_wide = amp_cat.query("cond_num == 1").pivot(index='ROI_id', columns=['stimulus'], values=value_col)
@@ -47,12 +47,12 @@ ROI_wide.columns = ["_".join(map(str, tup)) for tup in ROI_wide.columns.to_flat_
 ROI_wide.rename(columns={'ROI_id_': 'ROI_id'}, inplace=True)
 
 ROI_wide.drop(columns=['peak_time_smval_0'], inplace=True)
-ROI_wide.drop(columns=['amp_smval_0'], inplace=True)
+# ROI_wide.drop(columns=['amp_smval_0'], inplace=True)
 
 
 try:
     ROI_wide.drop(columns=['half_decay_time_0'], inplace=True)
-    ROI_wide.drop(columns=['half_decay_time_5'], inplace=True)
+    # ROI_wide.drop(columns=['half_decay_time_5'], inplace=True)
 except:
     pass
 
@@ -81,10 +81,10 @@ umap_toplt = ROI_wide.assign(
 
 # %% re umap for clustering 
 clusterable_embedding = umap.UMAP(
-    n_neighbors=30,
+    n_neighbors=40,
     min_dist=0.1,
     n_components=2,
-    random_state=15,
+    random_state=20,
 ).fit_transform(df_std)
 
 
@@ -93,28 +93,20 @@ umap_toplt = umap_toplt.assign(
     umapC2 = clusterable_embedding[:, 1],
 )
 
-# g = sns.scatterplot(umap_toplt, x='umapC1', y='umapC2', hue='peak_cat', alpha=0.5, size=0.1)
-
-# % cluste4ring
-# cluster_labels = hdbscan.HDBSCAN(
-#     min_samples=200,
-#     min_cluster_size=5,
-# ).fit_predict(clusterable_embedding)
-
-get_clusters = DBSCAN(eps=0.5, 
-                      min_samples=10
+get_clusters = DBSCAN(eps=0.4, 
+                      min_samples=15
                       ).fit_predict(clusterable_embedding)
 
 umap_toplt = umap_toplt.assign(
     cluster = get_clusters
 )
-p = sns.relplot(kind='scatter', hue='cluster', data=umap_toplt, x='umapC1', y='umapC2', alpha=0.5, linewidth=0, 
+p = sns.relplot(kind='scatter', hue='cluster', data=umap_toplt, x='umapC1', y='umapC2', alpha=0.4, linewidth=0, 
                 palette = 'Set2',
                 height=4,
                 )
 plt.savefig(f"{fig_dir}/UMAP scatter.pdf", format='PDF')
 
-p = sns.relplot(kind='scatter', hue='which_exp', data=umap_toplt, x='umapC1', y='umapC2', alpha=0.5, linewidth=0, 
+p = sns.relplot(kind='scatter', hue='which_exp', data=umap_toplt, x='umapC1', y='umapC2', alpha=0.4, linewidth=0, 
                 palette = 'Set2',
                 height=4,
                 )

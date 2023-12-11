@@ -27,24 +27,23 @@ root, cond4qc = sel_exp(sel_dir)
 
 # %%
 _, amp_smval, slope = doQC_getSlope_wTimedAvgAmp(root, cond4qc)
-slope = slope.reset_index(drop=True)
+amp_smval = amp_smval.reset_index(drop=True)
+which_amp = 'amp_smval'
+# slope = slope.reset_index(drop=True)
 # %%
 
 if 'lesion' in sel_dir:
-    slope.loc[slope['cond_num']==2, 'exp_cond_ordered'] = '2lesion'
-    lesion_df = slope.loc[slope['cond_num']==2].copy()
-    values_to_norm = slope.query("cond_num == 2")['last3sec'].values - slope.query("cond_num == 1")['last3sec'].values
-    
-    for amp in ['amp_1', 'amp_2', 'amp_3', 'amp_4','last3sec']:
-        normed_values = (lesion_df[amp].values - values_to_norm)/slope.query("cond_num == 2")['last3sec'].values
-        lesion_df.loc[:,amp] = normed_values
-    lesion_df = lesion_df.assign(
-        cond_num = 2.5,
-        exp_cond = 'postProxBi_adj',
-        area = 2.5,
-        exp_cond_ordered = '3lesion_adj'
+    amp_smval.loc[amp_smval['cond_num']==2, 'exp_cond_ordered'] = '2lesion'
+    lesion_df = amp_smval.loc[amp_smval['cond_num']==2].copy()
+    values_to_norm = amp_smval.query("cond_num == 2 & stimulus == 0")['amp_smval'].values - amp_smval.query("cond_num == 1 & stimulus == 0")['amp_smval'].values
+    values_to_norm = np.repeat(values_to_norm, len(lesion_df.nsti.unique()))
+    cond2_base = np.repeat(lesion_df.query("stimulus == 0")['amp_smval'].values, len(lesion_df.nsti.unique()))
+    amp_normed = (lesion_df['amp_smval'] - values_to_norm)/cond2_base 
+    amp_smval = amp_smval.assign(
+        amp_normed = amp_smval['amp_smval']
     )
-    slope = pd.concat([slope.query("exp_cond != 'postProxBi_adj'"), lesion_df], ignore_index=True)
+    amp_smval.loc[amp_smval['cond_num']==2,'amp_normed'] = amp_normed.values
+    which_amp = 'amp_normed'
 
 # %%
 df = amp_smval.loc[amp_smval[sel_qc]]
@@ -56,45 +55,45 @@ df = df.sort_values(by=['ROI_id','exp_cond_ordered']).reset_index(drop=True)
 df, _ = get_peakTimingCat(df)
 # %% plot
 df_toplt = df
-for which_amp in ['amp_raw', 'amp_smval']:
-    sns.relplot(
-        kind='line',
-        data=df_toplt.loc[df_toplt['cond_num']<3],
-        x='stimulus',
-        y=which_amp,
-        units='ROI_id',
-        estimator=None,
-        row='which_exp',
-        col='exp_cond_ordered',
-        alpha=0.1,
-        height=3
-    )
-    plt.savefig(f"{fig_dir}/rawLine {which_amp}Xstimulus.pdf", format='PDF')
 
-
-    sns.relplot(
-        kind='line',
-        data=df_toplt.loc[df_toplt['cond_num']<3],
-        x='stimulus',
-        y=which_amp,
-        row='which_exp',
-        hue='exp_cond_ordered',
-        height=3
-    )
-    plt.savefig(f"{fig_dir}/avgLine {which_amp}Xstimulus.pdf", format='PDF')
-    
-    g = plt_categorical_grid2(
+sns.relplot(
+    kind='line',
     data=df_toplt.loc[df_toplt['cond_num']<3],
-    gridcol='stimulus',
-    y_name=which_amp,
-    gridrow='which_exp',
-    x_name='exp_cond_ordered',
+    x='stimulus',
+    y=which_amp,
     units='ROI_id',
+    estimator=None,
+    row='which_exp',
+    col='exp_cond_ordered',
     alpha=0.1,
-    aspect=0.7
-    )
-    g.set(ylim=[-0.4, np.percentile(df_toplt[which_amp], 99.9)])
-    plt.savefig(f"{fig_dir}/{which_amp}Xcond.pdf", format='PDF')
+    height=3
+)
+plt.savefig(f"{fig_dir}/rawLine {which_amp}Xstimulus.pdf", format='PDF')
+
+
+sns.relplot(
+    kind='line',
+    data=df_toplt.loc[df_toplt['cond_num']<3],
+    x='stimulus',
+    y=which_amp,
+    row='which_exp',
+    hue='exp_cond_ordered',
+    height=3
+)
+plt.savefig(f"{fig_dir}/avgLine {which_amp}Xstimulus.pdf", format='PDF')
+
+g = plt_categorical_grid2(
+data=df_toplt.loc[df_toplt['cond_num']<3],
+gridcol='stimulus',
+y_name=which_amp,
+gridrow='which_exp',
+x_name='exp_cond_ordered',
+units='ROI_id',
+alpha=0.1,
+aspect=0.7
+)
+g.set(ylim=[-0.4, np.percentile(df_toplt[which_amp], 99.9)])
+plt.savefig(f"{fig_dir}/{which_amp}Xcond.pdf", format='PDF')
 
 
 #%% check timing
